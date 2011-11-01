@@ -768,3 +768,6 @@ instance Labellable Value where
 
 instance Show Instruction where
   show = printValue . Value
+
+instance Show Function where
+  show = printValue . Value
