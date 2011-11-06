@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# LANGUAGE TypeSynonymInstances, ExistentialQuantification #-}
+{-# LANGUAGE TypeSynonymInstances, ExistentialQuantification, OverloadedStrings #-}
 module Data.LLVM.Types.Referential (
   Type(..),
   UniqueId,
@@ -17,6 +17,7 @@ module Data.LLVM.Types.Referential (
   Constant(..),
   Metadata(..),
   MetadataContent(..),
+  externalIsIntrinsic,
   functionIsVararg,
   functionEntryInstruction,
   functionExitInstruction,
@@ -24,7 +25,7 @@ module Data.LLVM.Types.Referential (
   llvmDebugVersion
   ) where
 
-import Data.ByteString.Char8 ( ByteString )
+import Data.ByteString.Char8 ( ByteString, isPrefixOf )
 import Data.Hashable
 import Data.Int
 import Data.Ord ( comparing )
@@ -502,6 +503,11 @@ instance Hashable ExternalFunction where
 
 instance Ord ExternalFunction where
   f1 `compare` f2 = comparing externalFunctionUniqueId f1 f2
+
+externalIsIntrinsic :: ExternalFunction -> Bool
+externalIsIntrinsic =
+  isPrefixOf "llvm." . identifierContent . externalFunctionName
+
 
 -- | Determine if an instruction is a Terminator instruction (i.e.,
 -- ends a BasicBlock)
@@ -985,5 +991,3 @@ data ValueContent = FunctionC Function
                   | ExternalFunctionC ExternalFunction
                   | InstructionC Instruction
                   | ConstantC Constant
-
-
