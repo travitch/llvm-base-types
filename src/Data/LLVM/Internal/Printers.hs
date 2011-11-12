@@ -479,9 +479,11 @@ printValue v = case valueContent v of
                , callAttrs = cattrs
                , callHasSRet = _
                } ->
-        let rtype = case valueType f of
-              TypeFunction r _ _ -> r
-              TypePointer (TypeFunction r _ _) _ -> r
+        let rtype = valueType i
+              -- case valueType f of
+              -- TypeFunction r _ _ -> r
+              -- TypePointer (TypeFunction r _ _) _ -> r
+              -- _ -> error ("Unknown function return type: " ++ show (valueType f))
         in compose [ printInstNamePrefix i
                    , printTailTag isTail
                    , "call"
