@@ -148,6 +148,25 @@ forceInstruction i = do
     PhiNode { phiIncomingValues = vs } -> do
       let forcePair (v1, v2) = forceValueIfConstant v1 >> forceValueIfConstant v2
       mapM_ forcePair vs
+    ResumeInst { resumeException = ex } -> forceValueIfConstant ex
+    FenceInst {} -> return ()
+    AtomicCmpXchgInst { atomicCmpXchgPointer = p
+                      , atomicCmpXchgComparison = c
+                      , atomicCmpXchgNewValue = v
+                      } ->
+      mapM_ forceValueIfConstant [ p, c, v ]
+    AtomicRMWInst { atomicRMWPointer = p
+                  , atomicRMWValue = v
+                  } ->
+      mapM_ forceValueIfConstant [ p, v ]
+    LandingPadInst { landingPadPersonality = p
+                   , landingPadClauses = cs
+                   } -> do
+      forceValueIfConstant p
+      let forceClause (c, t) = do
+            forceValueIfConstant c
+            t `seq` return ()
+      mapM_ forceClause cs
 
 
 

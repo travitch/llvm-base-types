@@ -287,6 +287,8 @@ printValue v = case valueContent v of
     case i of
       RetInst { retInstValue = Just rv } -> compose [ "ret", printConstOrName rv ]
       RetInst { } -> "ret void"
+      ResumeInst { resumeException = val } ->
+        compose [ "resume", printConstOrName val ]
       UnconditionalBranchInst { unconditionalBranchTarget = dest } ->
         compose [ "br", (printConstOrName . Value) dest ]
       BranchInst { branchCondition = cond
@@ -407,6 +409,37 @@ printValue v = case valueContent v of
                 , printConstOrName dest
                 , printAlignment align
                 ]
+      FenceInst { fenceOrdering = o, fenceScope = s } ->
+        compose [ "fence", show s, show o ]
+      AtomicCmpXchgInst { atomicCmpXchgOrdering = o
+                        , atomicCmpXchgScope = s
+                        , atomicCmpXchgIsVolatile = isVol
+                        , atomicCmpXchgAddressSpace = _ -- ?
+                        , atomicCmpXchgPointer = ptr
+                        , atomicCmpXchgComparison = cmp
+                        , atomicCmpXchgNewValue = newV
+                        } ->
+        compose [ "cmpxchg", printVolatileFlag isVol
+                , printConstOrName ptr, ","
+                , printConstOrName cmp, ","
+                , printConstOrName newV
+                , show s, show o
+                ]
+      AtomicRMWInst { atomicRMWOrdering = o
+                    , atomicRMWScope = s
+                    , atomicRMWOperation = op
+                    , atomicRMWIsVolatile = isVol
+                    , atomicRMWPointer = p
+                    , atomicRMWValue = val
+                    , atomicRMWAddressSpace = _ -- ?
+                    } ->
+        compose [ "atomicrmw", printVolatileFlag isVol
+                , show op
+                , printConstOrName p, ","
+                , printConstOrName val
+                , show s
+                , show o
+                ]
       TruncInst { } -> printTypecast "trunc" i
       ZExtInst { } -> printTypecast "zext" i
       SExtInst { } -> printTypecast "sext" i
@@ -519,7 +552,26 @@ printValue v = case valueContent v of
                 , printConstOrName va, ","
                 , printType (instructionType i)
                 ]
+      -- FIXME: This might not be correct in printing the filter
+      -- functions...
+      LandingPadInst { landingPadPersonality = p
+                     , landingPadIsCleanup = isClean
+                     , landingPadClauses = cs
+                     } ->
+        compose [ printInstNamePrefix i
+                , "landingpad"
+                , printType (instructionType i)
+                , "personality"
+                , printConstOrName p
+                , if isClean then "cleanup" else ""
+                , intercalate " " $ map printClause cs
+                ]
   ConstantC c -> printConstant c
+
+printClause :: (Value, LandingPadClause) -> String
+printClause (v, p) = case p of
+  LPCatch -> compose [ "catch", printConstOrName v ]
+  LPFilter -> compose [ "filter", printConstOrName v ]
 
 printConstant :: Constant -> String
 printConstant c = case c of
@@ -747,14 +799,13 @@ printType (TypeFunction retT argTs isVa) =
         argVals = intercalate ", " $ map printType argTs
         vaTag :: String
         vaTag = if isVa then ", ..." else ""
-printType TypeOpaque = "opaque"
 printType (TypePointer ty _) = mconcat [ printType ty, "*" ]
-printType (TypeStruct ts p) =
+printType (TypeStruct Nothing ts p) =
   case p of
     True -> mconcat [ "<", fieldVals, ">" ]
     False -> mconcat [ "{", fieldVals, "}" ]
   where fieldVals = intercalate ", " $ map printType ts
-printType (TypeNamed name _) = '%' : name
+printType (TypeStruct (Just n) _ _) = '%' : n
 
 instance Show Metadata where
   show = printMetadata

@@ -43,12 +43,9 @@ data Module = Module { moduleIdentifier :: ByteString
                      , moduleNextId :: UniqueId
                      }
 
--- isNotExternal :: Value -> Bool
--- isNotExternal Value { valueContent = Function {} } = True
--- isNotExternal Value { valueContent = GlobalDeclaration {} } = True
--- isNotExternal _ = False
-
 -- | Implementation of the Show instance
+--
+-- FIXME: Print out the external values and functions
 printModule :: Module -> String
 printModule Module { moduleIdentifier = _
                    , moduleDataLayout = layout
@@ -57,8 +54,8 @@ printModule Module { moduleIdentifier = _
                    , moduleAliases = aliases
                    , moduleGlobalVariables = vars
                    , moduleDefinedFunctions = funcs
-                   , moduleExternalValues = evars
-                   , moduleExternalFunctions = efuncs
+                   , moduleExternalValues = _ -- evars
+                   , moduleExternalFunctions = _ -- efuncs
                    } =
   concat [ layoutS, "\n", tripleS, "\n", asmS, "\n"
          , aliasesS, "\n", varS, "\n", funcS, "\n"

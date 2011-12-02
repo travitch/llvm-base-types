@@ -64,10 +64,8 @@ data Type = TypeInteger !Int
             -- ^ Functions with a return type, list of argument types,
             -- and a flag that denotes whether or not the function
             -- accepts varargs
-          | TypeOpaque
           | TypePointer Type !Int
-          | TypeStruct [Type] !Bool -- isPacked
-          | TypeNamed !String Type
+          | TypeStruct (Maybe String) [Type] !Bool -- isPacked
             -- ^ A wrapper for typedefs
 
 -- Deriving an Ord instance won't work because Type is a cyclic data
@@ -94,10 +92,8 @@ instance Hashable Type where
   hash (TypeArray i t) = 11 `combine` hash i `combine` hash t
   hash (TypeVector i t) = 12 `combine` hash i `combine` hash t
   hash (TypeFunction r ts v) = 13 `combine` hash r `combine` hash ts `combine` hash v
-  hash TypeOpaque = 14
   hash (TypePointer t as) = 15 `combine` hash t `combine` as
-  hash (TypeStruct ts p) = 16 `combine` hash ts `combine` hash p
-  hash (TypeNamed s _) = 17 `combine` hash s
+  hash (TypeStruct n ts p) = 16 `combine` hash ts `combine` hash p `combine` hash n
 
 instance Eq Type where
   TypeInteger i1 == TypeInteger i2 = i1 == i2
@@ -114,10 +110,8 @@ instance Eq Type where
   TypeVector i1 t1 == TypeVector i2 t2 = i1 == i2 && t1 == t2
   TypeFunction r1 ts1 v1 == TypeFunction r2 ts2 v2 =
     v1 == v2 && r1 == r2 && ts1 == ts2
-  TypeOpaque == TypeOpaque = True
   TypePointer t1 as1 == TypePointer t2 as2 = t1 == t2 && as1 == as2
-  TypeStruct ts1 p1 == TypeStruct ts2 p2 = ts1 == ts2 && p1 == p2
-  TypeNamed s1 _ == TypeNamed s2 _ = s1 == s2
+  TypeStruct n1 ts1 p1 == TypeStruct n2 ts2 p2 = n1 == n2 && ts1 == ts2 && p1 == p2
   _ == _ = False
 
 data MetadataContent =
@@ -518,6 +512,7 @@ instructionIsTerminator BranchInst {} = True
 instructionIsTerminator SwitchInst {} = True
 instructionIsTerminator IndirectBranchInst {} = True
 instructionIsTerminator UnwindInst {} = True
+instructionIsTerminator ResumeInst {} = True
 instructionIsTerminator UnreachableInst {} = True
 instructionIsTerminator InvokeInst {} = True
 instructionIsTerminator _ = False
@@ -570,6 +565,13 @@ data Instruction = RetInst { instructionType :: Type
                               , instructionMetadata :: [Metadata]
                               , instructionUniqueId :: !UniqueId
                               , instructionBasicBlock :: Maybe BasicBlock
+                              }
+                 | ResumeInst { instructionType :: Type
+                              , instructionName :: !(Maybe Identifier)
+                              , instructionMetadata :: [Metadata]
+                              , instructionUniqueId :: !UniqueId
+                              , instructionBasicBlock :: Maybe BasicBlock
+                              , resumeException :: Value
                               }
                  | UnreachableInst { instructionType :: Type
                                    , instructionName :: !(Maybe Identifier)
@@ -648,6 +650,40 @@ data Instruction = RetInst { instructionType :: Type
                              , storeAlignment :: !Int64
                              , storeAddressSpace :: !Int
                              }
+                 | FenceInst { instructionType :: Type
+                             , instructionName :: !(Maybe Identifier)
+                             , instructionMetadata :: [Metadata]
+                             , instructionUniqueId :: !UniqueId
+                             , instructionBasicBlock :: Maybe BasicBlock
+                             , fenceOrdering :: !AtomicOrdering
+                             , fenceScope :: !SynchronizationScope
+                             }
+                 | AtomicCmpXchgInst { instructionType :: Type
+                                     , instructionName :: !(Maybe Identifier)
+                                     , instructionMetadata :: [Metadata]
+                                     , instructionUniqueId :: !UniqueId
+                                     , instructionBasicBlock :: Maybe BasicBlock
+                                     , atomicCmpXchgOrdering :: !AtomicOrdering
+                                     , atomicCmpXchgScope :: !SynchronizationScope
+                                     , atomicCmpXchgIsVolatile :: !Bool
+                                     , atomicCmpXchgAddressSpace :: !Int
+                                     , atomicCmpXchgPointer :: Value
+                                     , atomicCmpXchgComparison :: Value
+                                     , atomicCmpXchgNewValue :: Value
+                                     }
+                 | AtomicRMWInst { instructionType :: Type
+                                 , instructionName :: !(Maybe Identifier)
+                                 , instructionMetadata :: [Metadata]
+                                 , instructionUniqueId :: !UniqueId
+                                 , instructionBasicBlock :: Maybe BasicBlock
+                                 , atomicRMWOrdering :: !AtomicOrdering
+                                 , atomicRMWScope :: !SynchronizationScope
+                                 , atomicRMWOperation :: !AtomicOperation
+                                 , atomicRMWIsVolatile :: !Bool
+                                 , atomicRMWPointer :: Value
+                                 , atomicRMWValue :: Value
+                                 , atomicRMWAddressSpace :: !Int
+                                 }
                  | AddInst { instructionType :: Type
                            , instructionName :: !(Maybe Identifier)
                            , instructionMetadata :: [Metadata]
@@ -894,6 +930,15 @@ data Instruction = RetInst { instructionType :: Type
                              , instructionBasicBlock :: Maybe BasicBlock
                              , vaArgValue :: Value
                              }
+                 | LandingPadInst { instructionType :: Type
+                                  , instructionName :: !(Maybe Identifier)
+                                  , instructionMetadata :: [Metadata]
+                                  , instructionUniqueId :: !UniqueId
+                                  , instructionBasicBlock :: Maybe BasicBlock
+                                  , landingPadPersonality :: Value
+                                  , landingPadIsCleanup :: !Bool
+                                  , landingPadClauses :: [(Value, LandingPadClause)]
+                                  }
                  | PhiNode { instructionType :: Type
                            , instructionName :: !(Maybe Identifier)
                            , instructionMetadata :: [Metadata]

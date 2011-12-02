@@ -12,6 +12,10 @@ module Data.LLVM.Types.Attributes (
   TargetTriple(..),
   AlignSpec(..),
   Assembly(..),
+  AtomicOperation(..),
+  LandingPadClause(..),
+  AtomicOrdering(..),
+  SynchronizationScope(..),
   -- * Values
   defaultDataLayout
   ) where
@@ -55,6 +59,56 @@ instance Show VisibilityStyle where
 instance NFData VisibilityStyle
 instance Default VisibilityStyle where
   def = VisibilityDefault
+
+{#enum CAtomicOrdering as AtomicOrdering {} deriving (Eq) #}
+
+instance Show AtomicOrdering where
+  show OrderNotAtomic = ""
+  show OrderUnordered = "unordered"
+  show OrderMonotonic = "monotonic"
+  show OrderAcquire = "acquire"
+  show OrderRelease = "release"
+  show OrderAcquireRelease = "acq_rel"
+  show OrderSequentiallyConsistent = "seq_cst"
+
+instance NFData AtomicOrdering
+instance Default AtomicOrdering where
+  def = OrderNotAtomic
+
+{#enum CSynchronizationScope as SynchronizationScope {} deriving (Eq) #}
+
+instance Show SynchronizationScope where
+  show SSSingleThread = "singlethread"
+  show SSCrossThread = ""
+
+instance NFData SynchronizationScope
+instance Default SynchronizationScope where
+  def = SSCrossThread
+
+{#enum AtomicOperation {} deriving (Eq) #}
+
+instance Show AtomicOperation where
+  show AOXchg = "xchg"
+  show AOAdd = "add"
+  show AOSub = "sub"
+  show AOAnd = "and"
+  show AONand = "nand"
+  show AOOr = "or"
+  show AOXor = "xor"
+  show AOMax = "max"
+  show AOMin = "min"
+  show AOUMax = "umax"
+  show AOUMin = "umin"
+
+instance NFData AtomicOperation
+
+{#enum LandingPadClause {} deriving (Eq) #}
+
+instance Show LandingPadClause where
+  show LPCatch = "catch"
+  show LPFilter = "filter"
+
+instance NFData LandingPadClause
 
 {#enum ArithFlags {} deriving (Eq) #}
 
@@ -263,4 +317,3 @@ defaultDataLayout = DataLayout { endianness = EBig
                                , stackAlign = [ (0, AlignSpec 64 64) ]
                                , nativeWidths = [] -- Set.empty
                                }
-

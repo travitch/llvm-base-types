@@ -76,14 +76,12 @@ typedef enum {
   TYPE_LABEL,
   TYPE_METADATA,
   TYPE_X86_MMX,
-  TYPE_OPAQUE,
   TYPE_INTEGER,
   TYPE_FUNCTION,
   TYPE_STRUCT,
   TYPE_ARRAY,
   TYPE_POINTER,
-  TYPE_VECTOR,
-  TYPE_NAMED
+  TYPE_VECTOR
 } TypeTag;
 
 /*!
@@ -134,6 +132,7 @@ typedef enum {
   VAL_INDIRECTBRINST, // op[0] = address, rest are possible dests
   VAL_INVOKEINST,
   VAL_UNWINDINST,
+  VAL_RESUMEINST,
   VAL_UNREACHABLEINST,
   VAL_ADDINST,
   VAL_FADDINST,
@@ -157,6 +156,9 @@ typedef enum {
   VAL_LOADINST,
   VAL_STOREINST,
   VAL_GETELEMENTPTRINST,
+  VAL_FENCEINST,
+  VAL_ATOMICCMPXCHGINST,
+  VAL_ATOMICRMWINST,
   VAL_TRUNCINST,
   VAL_ZEXTINST,
   VAL_SEXTINST,
@@ -180,6 +182,7 @@ typedef enum {
   VAL_SHUFFLEVECTORINST, // 0 = v1, 1 = v2, v3 = mask
   VAL_EXTRACTVALUEINST,
   VAL_INSERTVALUEINST,
+  VAL_LANDINGPADINST,
   // Globals
   VAL_FUNCTION,
   VAL_GLOBALVARIABLE,
@@ -212,3 +215,36 @@ typedef enum {
   VisibilityProtected
 } VisibilityStyle;
 
+typedef enum {
+  OrderNotAtomic,
+  OrderUnordered,
+  OrderMonotonic,
+  OrderAcquire,
+  OrderRelease,
+  OrderAcquireRelease,
+  OrderSequentiallyConsistent
+} CAtomicOrdering;
+
+typedef enum {
+  SSSingleThread,
+  SSCrossThread
+} CSynchronizationScope;
+
+typedef enum {
+  AOXchg,
+  AOAdd,
+  AOSub,
+  AOAnd,
+  AONand,
+  AOOr,
+  AOXor,
+  AOMax,
+  AOMin,
+  AOUMax,
+  AOUMin
+} AtomicOperation;
+
+typedef enum {
+  LPCatch,
+  LPFilter
+} LandingPadClause;
