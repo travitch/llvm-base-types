@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE TypeSynonymInstances, ExistentialQuantification, OverloadedStrings #-}
 module Data.LLVM.Types.Referential (
+  -- * Types
   Type(..),
   UniqueId,
   IsValue(..),
@@ -17,11 +18,14 @@ module Data.LLVM.Types.Referential (
   Constant(..),
   Metadata(..),
   MetadataContent(..),
+  -- * Extra accessors
   externalIsIntrinsic,
   functionIsVararg,
   functionEntryInstruction,
   functionExitInstruction,
   instructionIsTerminator,
+  valueContent',
+  -- * Debug info
   llvmDebugVersion
   ) where
 
@@ -1036,3 +1040,10 @@ data ValueContent = FunctionC Function
                   | ExternalFunctionC ExternalFunction
                   | InstructionC Instruction
                   | ConstantC Constant
+
+-- | A version of @valueContent@ that ignores (peeks through)
+-- bitcasts.  This is most useful in view patterns.
+valueContent' :: IsValue a => a -> ValueContent
+valueContent' v = case valueContent v of
+  InstructionC BitcastInst { castedValue = cv } -> valueContent' cv
+  _ -> valueContent v
