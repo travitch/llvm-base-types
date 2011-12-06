@@ -97,7 +97,8 @@ instance Hashable Type where
   hash (TypeVector i t) = 12 `combine` hash i `combine` hash t
   hash (TypeFunction r ts v) = 13 `combine` hash r `combine` hash ts `combine` hash v
   hash (TypePointer t as) = 15 `combine` hash t `combine` as
-  hash (TypeStruct n ts p) = 16 `combine` hash ts `combine` hash p `combine` hash n
+  hash (TypeStruct (Just n) _ _) = 16 `combine` hash n
+  hash (TypeStruct Nothing ts p) = 17 `combine` hash ts `combine` hash p
 
 instance Eq Type where
   TypeInteger i1 == TypeInteger i2 = i1 == i2
@@ -115,7 +116,9 @@ instance Eq Type where
   TypeFunction r1 ts1 v1 == TypeFunction r2 ts2 v2 =
     v1 == v2 && r1 == r2 && ts1 == ts2
   TypePointer t1 as1 == TypePointer t2 as2 = t1 == t2 && as1 == as2
-  TypeStruct n1 ts1 p1 == TypeStruct n2 ts2 p2 = n1 == n2 && ts1 == ts2 && p1 == p2
+  TypeStruct (Just n1) _ _ == TypeStruct (Just n2) _ _ = n1 == n2
+  TypeStruct Nothing ts1 p1 == TypeStruct Nothing ts2 p2 =
+    ts1 == ts2 && p1 == p2
   _ == _ = False
 
 data MetadataContent =
