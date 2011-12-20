@@ -124,15 +124,15 @@ instance Eq Type where
 data MetadataContent =
   MetaSourceLocation { metaSourceRow :: !Int32
                      , metaSourceCol :: !Int32
-                     , metaSourceScope :: Metadata
+                     , metaSourceScope :: Maybe Metadata
                      }
   | MetaDWLexicalBlock { metaLexicalBlockRow :: !Int32
                        , metaLexicalBlockCol :: !Int32
-                       , metaLexicalBlockContext :: Metadata
+                       , metaLexicalBlockContext :: Maybe Metadata
                        }
-  | MetaDWNamespace { metaNamespaceContext :: Metadata
+  | MetaDWNamespace { metaNamespaceContext :: Maybe Metadata
                     , metaNamespaceName :: !ByteString
-                    , metaNamespaceCompileUnit :: Metadata
+                    -- , metaNamespaceCompileUnit :: Metadata
                     , metaNamespaceLine :: !Int32
                     }
   | MetaDWCompileUnit { metaCompileUnitLanguage :: !DW_LANG
@@ -146,25 +146,25 @@ data MetadataContent =
                       }
   | MetaDWFile { metaFileSourceFile :: !ByteString
                , metaFileSourceDir :: !ByteString
-               , metaFileCompileUnit :: Metadata
+               -- , metaFileCompileUnit :: Metadata
                }
-  | MetaDWVariable { metaGlobalVarContext :: Metadata
+  | MetaDWVariable { metaGlobalVarContext :: Maybe Metadata
                    , metaGlobalVarName :: !ByteString
                    , metaGlobalVarDisplayName :: !ByteString
                    , metaGlobalVarLinkageName :: !ByteString
-                   , metaGlobalVarFile :: Metadata
+                   -- , metaGlobalVarFile :: Metadata
                    , metaGlobalVarLine :: !Int32
-                   , metaGlobalVarType :: Metadata
+                   , metaGlobalVarType :: Maybe Metadata
                    , metaGlobalVarStatic :: !Bool
                    , metaGlobalVarNotExtern :: !Bool
                    }
-  | MetaDWSubprogram { metaSubprogramContext :: Metadata
+  | MetaDWSubprogram { metaSubprogramContext :: Maybe Metadata
                      , metaSubprogramName :: !ByteString
                      , metaSubprogramDisplayName :: !ByteString
                      , metaSubprogramLinkageName :: !ByteString
-                     , metaSubprogramFile :: Metadata
+                     -- , metaSubprogramFile :: Metadata
                      , metaSubprogramLine :: !Int32
-                     , metaSubprogramType :: Metadata
+                     , metaSubprogramType :: Maybe Metadata
                      , metaSubprogramIsExplicit :: !Bool
                      , metaSubprogramIsPrototyped :: !Bool
                      , metaSubprogramStatic :: !Bool
@@ -175,7 +175,7 @@ data MetadataContent =
                      , metaSubprogramArtificial :: !Bool
                      , metaSubprogramOptimized :: !Bool
                      }
-  | MetaDWBaseType { metaBaseTypeContext :: Metadata
+  | MetaDWBaseType { metaBaseTypeContext :: Maybe Metadata
                    , metaBaseTypeName :: !ByteString
                    , metaBaseTypeFile :: Maybe Metadata
                    , metaBaseTypeLine :: !Int32
@@ -186,8 +186,8 @@ data MetadataContent =
                    , metaBaseTypeEncoding :: !DW_ATE
                    }
   | MetaDWDerivedType { metaDerivedTypeTag :: !DW_TAG
-                      , metaDerivedTypeContext :: Metadata
-                      , metaDerivedTypeCompileUnit :: Maybe Metadata
+                      , metaDerivedTypeContext :: Maybe Metadata
+                      -- , metaDerivedTypeCompileUnit :: Maybe Metadata
                       , metaDerivedTypeName :: !ByteString
                       , metaDerivedTypeFile :: Maybe Metadata
                       , metaDerivedTypeLine :: !Int32
@@ -202,10 +202,10 @@ data MetadataContent =
                       , metaDerivedTypeParent :: Maybe Metadata
                       }
   | MetaDWCompositeType { metaCompositeTypeTag :: !DW_TAG
-                        , metaCompositeTypeContext :: Metadata
+                        , metaCompositeTypeContext :: Maybe Metadata
                         , metaCompositeTypeName :: !ByteString
                         , metaCompositeTypeFile :: Maybe Metadata
-                        , metaCompositeTypeCompileUnit :: Maybe Metadata
+                        -- , metaCompositeTypeCompileUnit :: Maybe Metadata
                         , metaCompositeTypeLine :: !Int32
                         , metaCompositeTypeSize :: !Int64
                         , metaCompositeTypeAlign :: !Int64
@@ -230,24 +230,24 @@ data MetadataContent =
                      , metaEnumeratorValue :: !Int64
                      }
   | MetaDWLocal { metaLocalTag :: !DW_TAG
-                , metaLocalContext :: Metadata
+                , metaLocalContext :: Maybe Metadata
                 , metaLocalName :: !ByteString
-                , metaLocalFile :: Metadata
+                -- , metaLocalFile :: Metadata
                 , metaLocalLine :: !Int32
                 , metaLocalArgNo :: !Int32
-                , metaLocalType :: Metadata
+                , metaLocalType :: Maybe Metadata
                 , metaLocalIsArtificial :: !Bool
                 , metaLocalIsBlockByRefVar :: !Bool
                 , metaLocalAddrElements :: [Int64]
                 }
-  | MetaDWTemplateTypeParameter { metaTemplateTypeParameterContext :: Metadata
-                                , metaTemplateTypeParameterType :: Metadata
+  | MetaDWTemplateTypeParameter { metaTemplateTypeParameterContext :: Maybe Metadata
+                                , metaTemplateTypeParameterType :: Maybe Metadata
                                 , metaTemplateTypeParameterLine :: !Int32
                                 , metaTemplateTypeParameterCol :: !Int32
                                 , metaTemplateTypeParameterName :: !ByteString
                                 }
-  | MetaDWTemplateValueParameter { metaTemplateValueParameterContext :: Metadata
-                                 , metaTemplateValueParameterType :: Metadata
+  | MetaDWTemplateValueParameter { metaTemplateValueParameterContext :: Maybe Metadata
+                                 , metaTemplateValueParameterType :: Maybe Metadata
                                  , metaTemplateValueParameterLine :: !Int32
                                  , metaTemplateValueParameterCol :: !Int32
                                  , metaTemplateValueParameterValue :: !Int64
