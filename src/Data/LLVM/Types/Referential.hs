@@ -1049,4 +1049,5 @@ data ValueContent = FunctionC Function
 valueContent' :: IsValue a => a -> ValueContent
 valueContent' v = case valueContent v of
   InstructionC BitcastInst { castedValue = cv } -> valueContent' cv
+  ConstantC ConstantValue { constantInstruction = BitcastInst { castedValue = cv } } -> valueContent' cv
   _ -> valueContent v
