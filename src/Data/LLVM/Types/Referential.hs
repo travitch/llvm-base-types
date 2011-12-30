@@ -25,6 +25,7 @@ module Data.LLVM.Types.Referential (
   functionExitInstruction,
   instructionIsTerminator,
   valueContent',
+  stripBitcasts,
   -- * Debug info
   llvmDebugVersion
   ) where
@@ -1051,3 +1052,10 @@ valueContent' v = case valueContent v of
   InstructionC BitcastInst { castedValue = cv } -> valueContent' cv
   ConstantC ConstantValue { constantInstruction = BitcastInst { castedValue = cv } } -> valueContent' cv
   _ -> valueContent v
+
+-- | Strip all wrapper bitcasts from a Value
+stripBitcasts :: IsValue a => a -> Value
+stripBitcasts v = case valueContent v of
+  InstructionC BitcastInst { castedValue = cv } -> stripBitcasts cv
+  ConstantC ConstantValue { constantInstruction = BitcastInst { castedValue = cv } } -> stripBitcasts cv
+  _ -> Value v
