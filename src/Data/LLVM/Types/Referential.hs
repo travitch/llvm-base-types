@@ -24,12 +24,14 @@ module Data.LLVM.Types.Referential (
   functionEntryInstruction,
   functionExitInstruction,
   instructionIsTerminator,
+  basicBlockTerminatorInstruction,
   valueContent',
   stripBitcasts,
   -- * Debug info
   llvmDebugVersion
   ) where
 
+import Control.DeepSeq
 import Data.ByteString.Char8 ( ByteString, isPrefixOf )
 import Data.Hashable
 import Data.Int
@@ -45,6 +47,16 @@ import Data.LLVM.Types.Identifiers
 llvmDebugVersion :: Integer
 llvmDebugVersion = 524288
 
+-- This isn't very honest, but Values are part of Modules and
+-- are fully evaluated before the module is constructed.
+instance NFData Instruction where
+  rnf _ = ()
+instance NFData Value where
+  rnf _ = ()
+instance NFData BasicBlock where
+  rnf _ = ()
+instance NFData Function where
+  rnf _ = ()
 
 -- | The type system of LLVM
 data Type = TypeInteger !Int
@@ -388,6 +400,12 @@ data BasicBlock = BasicBlock { basicBlockType :: Type
                              , basicBlockInstructions :: [Instruction]
                              , basicBlockFunction :: Function
                              }
+
+basicBlockTerminatorInstruction :: BasicBlock -> Instruction
+basicBlockTerminatorInstruction bb =
+  case null (basicBlockInstructions bb) of
+    True -> error "Basic blocks cannot be empty"
+    False -> last (basicBlockInstructions bb)
 
 instance IsValue BasicBlock where
   valueType = basicBlockType
