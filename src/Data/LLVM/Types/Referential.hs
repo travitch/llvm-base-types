@@ -348,10 +348,17 @@ functionEntryInstruction f = e1
     (e1:_) = basicBlockInstructions bb1
 
 functionExitInstruction :: Function -> Instruction
-functionExitInstruction f = e
+functionExitInstruction f =
+  case retInsts of
+    [] -> error $ "Function has no ret instruction: " ++ show (functionName f)
+    [ri] -> ri
+    _ -> error $ "Function has multiple ret instructions: " ++ show (functionName f)
   where
-    (bb:_) = reverse (functionBody f)
-    (e:_) = reverse (basicBlockInstructions bb)
+    is = concatMap basicBlockInstructions (functionBody f)
+    retInsts = filter isRetInst is
+    isRetInst (RetInst {}) = True
+    isRetInst _ = False
+
 
 instance IsValue Function where
   valueType = functionType
