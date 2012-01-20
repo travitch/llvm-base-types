@@ -25,6 +25,8 @@ module Data.LLVM.Types.Referential (
   functionExitInstruction,
   instructionIsTerminator,
   basicBlockTerminatorInstruction,
+  firstNonPhiInstruction,
+  isFirstNonPhiInstruction,
   valueContent',
   stripBitcasts,
   -- * Debug info
@@ -413,6 +415,23 @@ basicBlockTerminatorInstruction bb =
   case null (basicBlockInstructions bb) of
     True -> error "Basic blocks cannot be empty"
     False -> last (basicBlockInstructions bb)
+
+-- | Get the first instruction in a basic block that is not a Phi
+-- node.  This is total because basic blocks cannot be empty and must
+-- end in a terminator instruction (Phi nodes are not terminators).
+firstNonPhiInstruction :: BasicBlock -> Instruction
+firstNonPhiInstruction BasicBlock { basicBlockInstructions = is } = i
+  where
+    i : _ = dropWhile isPhi is
+    isPhi v = case v of
+      PhiNode {} -> True
+      _ -> False
+
+-- | Determine if @i@ is the first non-phi instruction in its block.
+isFirstNonPhiInstruction :: Instruction -> Bool
+isFirstNonPhiInstruction i = i == firstNonPhiInstruction bb
+  where
+    Just bb = instructionBasicBlock i
 
 instance IsValue BasicBlock where
   valueType = basicBlockType
