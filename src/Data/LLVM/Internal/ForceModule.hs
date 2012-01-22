@@ -324,3 +324,4 @@ forceMetadataT m@(MetaDWTemplateValueParameter {}) = do
   mapM_ (maybe (return ()) metaForceIfNeeded) [ metaTemplateValueParameterContext m
                                               , metaTemplateValueParameterType m
                                               ]
+forceMetadataT (MetadataUnknown _) = return ()

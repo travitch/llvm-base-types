@@ -193,6 +193,8 @@ printMetadata md@Metadata { metaValueContent = t@MetaDWTemplateValueParameter {}
           , ", i64 ", show (metaTemplateValueParameterValue t)
           , "}"
           ]
+printMetadata md@Metadata { metaValueContent = MetadataUnknown s } =
+  mconcat [ showUntypedMDName md, " = metadata ", unpack s ]
 
 -- Take all of the asm chunks, break their contents into lines,
 -- then wrap each of those lines in the 'module asm' wrapper.

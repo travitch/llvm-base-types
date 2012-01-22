@@ -25,8 +25,10 @@ module Data.LLVM.Types.Referential (
   functionExitInstruction,
   instructionIsTerminator,
   basicBlockTerminatorInstruction,
+  instructionIsPhiNode,
   firstNonPhiInstruction,
   isFirstNonPhiInstruction,
+  basicBlockSplitPhiNodes,
   valueContent',
   stripBitcasts,
   -- * Debug info
@@ -268,6 +270,7 @@ data MetadataContent =
                                  , metaTemplateValueParameterValue :: !Int64
                                  , metaTemplateValueParameterName :: !ByteString
                                  }
+  | MetadataUnknown !ByteString
   | MetadataList [Metadata]
   deriving (Ord, Eq)
 
@@ -422,16 +425,23 @@ basicBlockTerminatorInstruction bb =
 firstNonPhiInstruction :: BasicBlock -> Instruction
 firstNonPhiInstruction BasicBlock { basicBlockInstructions = is } = i
   where
-    i : _ = dropWhile isPhi is
-    isPhi v = case v of
-      PhiNode {} -> True
-      _ -> False
+    i : _ = dropWhile instructionIsPhiNode is
+
+-- | Predicate to test an instruction to see if it is a phi node
+instructionIsPhiNode :: Instruction -> Bool
+instructionIsPhiNode v = case v of
+  PhiNode {} -> True
+  _ -> False
 
 -- | Determine if @i@ is the first non-phi instruction in its block.
 isFirstNonPhiInstruction :: Instruction -> Bool
 isFirstNonPhiInstruction i = i == firstNonPhiInstruction bb
   where
     Just bb = instructionBasicBlock i
+
+-- | Split a block's instructions into phi nodes and the rest
+basicBlockSplitPhiNodes :: BasicBlock -> ([Instruction], [Instruction])
+basicBlockSplitPhiNodes = span instructionIsPhiNode . basicBlockInstructions
 
 instance IsValue BasicBlock where
   valueType = basicBlockType
