@@ -23,6 +23,7 @@ module Data.LLVM.Types.Referential (
   functionIsVararg,
   functionEntryInstruction,
   functionExitInstruction,
+  functionExitInstructions,
   instructionIsTerminator,
   basicBlockTerminatorInstruction,
   instructionIsPhiNode,
@@ -352,16 +353,29 @@ functionEntryInstruction f = e1
     (bb1:_) = functionBody f
     (e1:_) = basicBlockInstructions bb1
 
+-- | Get the ret instruction for a Function
 functionExitInstruction :: Function -> Instruction
 functionExitInstruction f =
-  case retInsts of
+  case filter isRetInst is of
     [] -> error $ "Function has no ret instruction: " ++ show (functionName f)
     [ri] -> ri
     _ -> error $ "Function has multiple ret instructions: " ++ show (functionName f)
   where
     is = concatMap basicBlockInstructions (functionBody f)
-    retInsts = filter isRetInst is
-    isRetInst (RetInst {}) = True
+    isRetInst RetInst {} = True
+    isRetInst _ = False
+
+-- | Get all exit instructions for a Function (ret, unreachable, unwind)
+functionExitInstructions :: Function -> [Instruction]
+functionExitInstructions f =
+  case filter isRetInst is of
+    [] -> error $ "Function has no ret instruction: " ++ show (functionName f)
+    ris -> ris
+  where
+    is = concatMap basicBlockInstructions (functionBody f)
+    isRetInst RetInst {} = True
+    isRetInst UnreachableInst {} = True
+    isRetInst UnwindInst {} = True
     isRetInst _ = False
 
 
