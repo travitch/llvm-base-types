@@ -62,6 +62,8 @@ instance NFData BasicBlock where
   rnf _ = ()
 instance NFData Function where
   rnf _ = ()
+instance NFData Argument where
+  rnf _ = ()
 
 -- | The type system of LLVM
 data Type = TypeInteger !Int
