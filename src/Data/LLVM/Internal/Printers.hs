@@ -379,12 +379,11 @@ printValue v = case valueContent v of
                 ]
       AllocaInst { allocaNumElements = elems
                  , allocaAlign = align
-                 , instructionType = t -- TypePointer ty _
                  } ->
         let count = case valueContent elems of
               ConstantC ConstantInt { constantIntValue = 1 } -> ""
               _ -> ", " ++ printConstOrName elems
-            TypePointer ty _ = t
+            TypePointer ty _ = instructionType i
         in   compose [ printInstNamePrefix i
                      , "alloca"
                      , printType ty

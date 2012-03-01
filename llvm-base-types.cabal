@@ -33,7 +33,7 @@ library
                  Data.LLVM.Types.Attributes,
                  Data.LLVM.Types.Referential
   build-tools: c2hs
-  ghc-options: -Wall
+  ghc-options: -Wall -funbox-strict-fields
   hs-source-dirs: src
   include-dirs: src
   -- other-modules:
