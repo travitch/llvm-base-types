@@ -9,6 +9,8 @@ module Data.LLVM.Types.Referential (
   ValueContent(..),
   Function(..),
   functionBody,
+  functionExitBlock,
+  functionExitBlocks,
   BasicBlock(..),
   basicBlockInstructions,
   Argument(..),
@@ -389,6 +391,33 @@ functionExitInstructions f =
     isRetInst UnwindInst {} = True
     isRetInst _ = False
 
+functionExitBlock :: Function -> BasicBlock
+functionExitBlock f =
+  case filter terminatorIsExitInst bbs of
+    [] -> error $ "Function has no ret instruction: " ++ show (functionName f)
+    [rb] -> rb
+    _ -> error $ "Function has multiple ret instructions: " ++ show (functionName f)
+  where
+    bbs = functionBody f
+    terminatorIsExitInst bb =
+      case basicBlockTerminatorInstruction bb of
+        RetInst {} -> True
+        _ -> False
+
+functionExitBlocks :: Function -> [BasicBlock]
+functionExitBlocks f =
+  case filter terminatorIsExitInst bbs of
+    [] -> error $ "Function has no ret instruction: " ++ show (functionName f)
+    rbs -> rbs
+  where
+    bbs = functionBody f
+    terminatorIsExitInst bb =
+      case basicBlockTerminatorInstruction bb of
+        RetInst {} -> True
+        UnreachableInst {} -> True
+        UnwindInst {} -> True
+        ResumeInst {} -> True
+        _ -> False
 
 instance IsValue Function where
   valueType = functionType
