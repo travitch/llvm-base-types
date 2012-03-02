@@ -8,7 +8,9 @@ module Data.LLVM.Types.Referential (
   Value(..),
   ValueContent(..),
   Function(..),
+  functionBody,
   BasicBlock(..),
+  basicBlockInstructions,
   Argument(..),
   Instruction(..),
   instructionType,
@@ -43,6 +45,8 @@ import Data.ByteString.Char8 ( ByteString, isPrefixOf )
 import Data.Hashable
 import Data.Int
 import Data.Ord ( comparing )
+import Data.Vector ( Vector )
+import qualified Data.Vector as V
 import Text.Printf
 
 import Data.LLVM.Types.Attributes
@@ -337,7 +341,7 @@ data Function = Function { functionType :: Type
                          , functionMetadata :: [Metadata]
                          , functionUniqueId :: !UniqueId
                          , functionParameters :: [Argument]
-                         , functionBody :: [BasicBlock]
+                         , functionBodyVector :: Vector BasicBlock
                          , functionLinkage :: !LinkageType
                          , functionVisibility :: !VisibilityStyle
                          , functionCC :: !CallingConvention
@@ -350,6 +354,9 @@ data Function = Function { functionType :: Type
 functionIsVararg :: Function -> Bool
 functionIsVararg Function { functionType = TypeFunction _ _ isva } = isva
 functionIsVararg v = error $ printf "Value %d is not a function" (valueUniqueId v)
+
+functionBody :: Function -> [BasicBlock]
+functionBody = V.toList . functionBodyVector
 
 functionEntryInstruction :: Function -> Instruction
 functionEntryInstruction f = e1
@@ -423,13 +430,15 @@ instance Eq Argument where
 instance Ord Argument where
   a1 `compare` a2 = comparing argumentUniqueId a1 a2
 
-data BasicBlock = BasicBlock { basicBlockType :: Type
-                             , basicBlockName :: !Identifier
+data BasicBlock = BasicBlock { basicBlockName :: !Identifier
                              , basicBlockMetadata :: [Metadata]
                              , basicBlockUniqueId :: !UniqueId
-                             , basicBlockInstructions :: [Instruction]
+                             , basicBlockInstructionVector :: Vector Instruction
                              , basicBlockFunction :: Function
                              }
+
+basicBlockInstructions :: BasicBlock -> [Instruction]
+basicBlockInstructions = V.toList . basicBlockInstructionVector
 
 basicBlockTerminatorInstruction :: BasicBlock -> Instruction
 basicBlockTerminatorInstruction bb =
@@ -441,9 +450,9 @@ basicBlockTerminatorInstruction bb =
 -- node.  This is total because basic blocks cannot be empty and must
 -- end in a terminator instruction (Phi nodes are not terminators).
 firstNonPhiInstruction :: BasicBlock -> Instruction
-firstNonPhiInstruction BasicBlock { basicBlockInstructions = is } = i
+firstNonPhiInstruction bb = i
   where
-    i : _ = dropWhile instructionIsPhiNode is
+    i : _ = dropWhile instructionIsPhiNode (basicBlockInstructions bb)
 
 -- | Predicate to test an instruction to see if it is a phi node
 instructionIsPhiNode :: Instruction -> Bool
@@ -462,7 +471,7 @@ basicBlockSplitPhiNodes :: BasicBlock -> ([Instruction], [Instruction])
 basicBlockSplitPhiNodes = span instructionIsPhiNode . basicBlockInstructions
 
 instance IsValue BasicBlock where
-  valueType = basicBlockType
+  valueType _ = TypeVoid
   valueName = Just . basicBlockName
   valueMetadata = basicBlockMetadata
   valueContent = BasicBlockC
