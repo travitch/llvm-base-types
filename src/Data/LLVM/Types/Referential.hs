@@ -11,6 +11,7 @@ module Data.LLVM.Types.Referential (
   functionBody,
   functionExitBlock,
   functionExitBlocks,
+  HasFunction(..),
   BasicBlock(..),
   basicBlockInstructions,
   Argument(..),
@@ -337,6 +338,12 @@ instance Ord Value where
 
 instance Hashable Value where
   hash = fromIntegral . valueUniqueId
+
+class HasFunction a where
+  getFunction :: a -> Function
+
+instance HasFunction Function where
+  getFunction = id
 
 data Function = Function { functionType :: Type
                          , functionName :: !Identifier
