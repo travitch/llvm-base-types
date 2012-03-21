@@ -246,9 +246,9 @@ metaForceIfNeeded m = do
     forceMetadata :: Metadata -> ForceMonad ()
     forceMetadata md = do
       md `seq` return ()
-      forceMetadataT (metaValueContent md)
+      forceMetadataT md
 
-forceMetadataT :: MetadataContent -> ForceMonad ()
+forceMetadataT :: Metadata -> ForceMonad ()
 forceMetadataT m@(MetaSourceLocation {}) = do
   m `seq` return ()
   maybe (return ()) metaForceIfNeeded (metaSourceScope m)
@@ -306,7 +306,7 @@ forceMetadataT m@(MetaDWLocal {}) = do
                                                 -- , metaLocalFile m
                                               , metaLocalType m
                                               ]
-forceMetadataT m@(MetadataList ms) = do
+forceMetadataT m@(MetadataList _ ms) = do
   m `seq` return ()
   mapM_ metaForceIfNeeded ms
 forceMetadataT m@(MetaDWNamespace {}) = do
@@ -324,4 +324,4 @@ forceMetadataT m@(MetaDWTemplateValueParameter {}) = do
   mapM_ (maybe (return ()) metaForceIfNeeded) [ metaTemplateValueParameterContext m
                                               , metaTemplateValueParameterType m
                                               ]
-forceMetadataT (MetadataUnknown _) = return ()
+forceMetadataT (MetadataUnknown _ _) = return ()

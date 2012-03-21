@@ -24,7 +24,6 @@ module Data.LLVM.Types.Referential (
   ExternalFunction(..),
   Constant(..),
   Metadata(..),
-  MetadataContent(..),
   -- * Extra accessors
   externalIsIntrinsic,
   functionIsVararg,
@@ -150,21 +149,25 @@ instance Eq Type where
     ts1 == ts2 && p1 == p2
   _ == _ = False
 
-data MetadataContent =
-  MetaSourceLocation { metaSourceRow :: !Int32
+data Metadata =
+  MetaSourceLocation { metaValueUniqueId :: !UniqueId
+                     , metaSourceRow :: !Int32
                      , metaSourceCol :: !Int32
                      , metaSourceScope :: Maybe Metadata
                      }
-  | MetaDWLexicalBlock { metaLexicalBlockRow :: !Int32
+  | MetaDWLexicalBlock { metaValueUniqueId :: !UniqueId
+                       , metaLexicalBlockRow :: !Int32
                        , metaLexicalBlockCol :: !Int32
                        , metaLexicalBlockContext :: Maybe Metadata
                        }
-  | MetaDWNamespace { metaNamespaceContext :: Maybe Metadata
+  | MetaDWNamespace { metaValueUniqueId :: !UniqueId
+                    , metaNamespaceContext :: Maybe Metadata
                     , metaNamespaceName :: !ByteString
                     -- , metaNamespaceCompileUnit :: Metadata
                     , metaNamespaceLine :: !Int32
                     }
-  | MetaDWCompileUnit { metaCompileUnitLanguage :: !DW_LANG
+  | MetaDWCompileUnit { metaValueUniqueId :: !UniqueId
+                      , metaCompileUnitLanguage :: !DW_LANG
                       , metaCompileUnitSourceFile :: !ByteString
                       , metaCompileUnitCompileDir :: !ByteString
                       , metaCompileUnitProducer :: !ByteString
@@ -173,11 +176,13 @@ data MetadataContent =
                       , metaCompileUnitFlags :: !ByteString
                       , metaCompileUnitVersion :: !Int32
                       }
-  | MetaDWFile { metaFileSourceFile :: !ByteString
+  | MetaDWFile { metaValueUniqueId :: !UniqueId
+               , metaFileSourceFile :: !ByteString
                , metaFileSourceDir :: !ByteString
                -- , metaFileCompileUnit :: Metadata
                }
-  | MetaDWVariable { metaGlobalVarContext :: Maybe Metadata
+  | MetaDWVariable { metaValueUniqueId :: !UniqueId
+                   , metaGlobalVarContext :: Maybe Metadata
                    , metaGlobalVarName :: !ByteString
                    , metaGlobalVarDisplayName :: !ByteString
                    , metaGlobalVarLinkageName :: !ByteString
@@ -187,7 +192,8 @@ data MetadataContent =
                    , metaGlobalVarStatic :: !Bool
                    , metaGlobalVarNotExtern :: !Bool
                    }
-  | MetaDWSubprogram { metaSubprogramContext :: Maybe Metadata
+  | MetaDWSubprogram { metaValueUniqueId :: !UniqueId
+                     , metaSubprogramContext :: Maybe Metadata
                      , metaSubprogramName :: !ByteString
                      , metaSubprogramDisplayName :: !ByteString
                      , metaSubprogramLinkageName :: !ByteString
@@ -204,7 +210,8 @@ data MetadataContent =
                      , metaSubprogramArtificial :: !Bool
                      , metaSubprogramOptimized :: !Bool
                      }
-  | MetaDWBaseType { metaBaseTypeContext :: Maybe Metadata
+  | MetaDWBaseType { metaValueUniqueId :: !UniqueId
+                   , metaBaseTypeContext :: Maybe Metadata
                    , metaBaseTypeName :: !ByteString
                    , metaBaseTypeFile :: Maybe Metadata
                    , metaBaseTypeLine :: !Int32
@@ -214,7 +221,8 @@ data MetadataContent =
                    , metaBaseTypeFlags :: !Int32
                    , metaBaseTypeEncoding :: !DW_ATE
                    }
-  | MetaDWDerivedType { metaDerivedTypeTag :: !DW_TAG
+  | MetaDWDerivedType { metaValueUniqueId :: !UniqueId
+                      , metaDerivedTypeTag :: !DW_TAG
                       , metaDerivedTypeContext :: Maybe Metadata
                       -- , metaDerivedTypeCompileUnit :: Maybe Metadata
                       , metaDerivedTypeName :: !ByteString
@@ -230,7 +238,8 @@ data MetadataContent =
                       , metaDerivedTypeIsProtected :: !Bool
                       , metaDerivedTypeParent :: Maybe Metadata
                       }
-  | MetaDWCompositeType { metaCompositeTypeTag :: !DW_TAG
+  | MetaDWCompositeType { metaValueUniqueId :: !UniqueId
+                        , metaCompositeTypeTag :: !DW_TAG
                         , metaCompositeTypeContext :: Maybe Metadata
                         , metaCompositeTypeName :: !ByteString
                         , metaCompositeTypeFile :: Maybe Metadata
@@ -252,13 +261,16 @@ data MetadataContent =
                         , metaCompositeTypeIsPrivate :: !Bool
                         , metaCompositeTypeIsByRefStruct :: !Bool
                         }
-  | MetaDWSubrange { metaSubrangeLow :: !Int64
+  | MetaDWSubrange { metaValueUniqueId :: !UniqueId
+                   , metaSubrangeLow :: !Int64
                    , metaSubrangeHigh :: !Int64
                    }
-  | MetaDWEnumerator { metaEnumeratorName :: !ByteString
+  | MetaDWEnumerator { metaValueUniqueId :: !UniqueId
+                     , metaEnumeratorName :: !ByteString
                      , metaEnumeratorValue :: !Int64
                      }
-  | MetaDWLocal { metaLocalTag :: !DW_TAG
+  | MetaDWLocal { metaValueUniqueId :: !UniqueId
+                , metaLocalTag :: !DW_TAG
                 , metaLocalContext :: Maybe Metadata
                 , metaLocalName :: !ByteString
                 -- , metaLocalFile :: Metadata
@@ -269,36 +281,33 @@ data MetadataContent =
                 , metaLocalIsBlockByRefVar :: !Bool
                 , metaLocalAddrElements :: [Int64]
                 }
-  | MetaDWTemplateTypeParameter { metaTemplateTypeParameterContext :: Maybe Metadata
+  | MetaDWTemplateTypeParameter { metaValueUniqueId :: !UniqueId
+                                , metaTemplateTypeParameterContext :: Maybe Metadata
                                 , metaTemplateTypeParameterType :: Maybe Metadata
                                 , metaTemplateTypeParameterLine :: !Int32
                                 , metaTemplateTypeParameterCol :: !Int32
                                 , metaTemplateTypeParameterName :: !ByteString
                                 }
-  | MetaDWTemplateValueParameter { metaTemplateValueParameterContext :: Maybe Metadata
+  | MetaDWTemplateValueParameter { metaValueUniqueId :: !UniqueId
+                                 , metaTemplateValueParameterContext :: Maybe Metadata
                                  , metaTemplateValueParameterType :: Maybe Metadata
                                  , metaTemplateValueParameterLine :: !Int32
                                  , metaTemplateValueParameterCol :: !Int32
                                  , metaTemplateValueParameterValue :: !Int64
                                  , metaTemplateValueParameterName :: !ByteString
                                  }
-  | MetadataUnknown !ByteString
-  | MetadataList [Metadata]
-  deriving (Ord, Eq)
+  | MetadataUnknown { metaValueUniqueId :: !UniqueId
+                    , metaUnknownValue :: !ByteString
+                    }
+  | MetadataList { metaValueUniqueId :: !UniqueId
+                 , metaListElements :: [Metadata]
+                 }
 
 -- | The type of the unique identifiers that let us to work with
 -- 'Value's and 'Metadata`, despite the cycles in the object graph.
 -- These ids are typically used as hash keys and give objects of these
 -- types identity.
 type UniqueId = Int
-
--- | A wrapper for 'Metadata' values that tracks an Identifier and a
--- unique identifier (similar to the 'Value' wrapper).  Almost all
--- 'Metadata' has an 'Identifier'.  The only exception seems to be a
--- few 'Value' constants (such as Ints and null).
-data Metadata = Metadata { metaValueContent :: MetadataContent
-                         , metaValueUniqueId :: !UniqueId
-                         }
 
 instance Eq Metadata where
   mv1 == mv2 = metaValueUniqueId mv1 == metaValueUniqueId mv2

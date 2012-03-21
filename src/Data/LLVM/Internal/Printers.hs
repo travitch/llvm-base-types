@@ -45,155 +45,157 @@ dbgTag :: Int -> String
 dbgTag i = show (i + fromIntegral llvmDebugVersion)
 
 printMetadata :: Metadata -> String
-printMetadata md@Metadata { metaValueContent = sl@MetaSourceLocation { } } =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", show (metaSourceRow sl)
-          , ", i32 ", show (metaSourceCol sl)
-          , ", ", maybeShowMDName (metaSourceScope sl)
+printMetadata md@MetaSourceLocation { } =
+  mconcat [ showUntypedMDName md, " = metadata !{i32 ", show (metaSourceRow md)
+          , ", i32 ", show (metaSourceCol md)
+          , ", ", maybeShowMDName (metaSourceScope md)
           , " null}"
           ]
-printMetadata md@Metadata { metaValueContent = lb@MetaDWLexicalBlock { } } =
+printMetadata md@MetaDWLexicalBlock { } =
   mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 11
-          , ", i32 ", show (metaLexicalBlockRow lb)
-          , ", i32 ", show (metaLexicalBlockCol lb)
-          , ", ", maybeShowMDName (metaLexicalBlockContext lb)
-          -- , ", ", showMDName (metaLexicalBlockFile lb)
-          -- , ", i32 ", show (metaLexicalBlockDepth lb)
+          , ", i32 ", show (metaLexicalBlockRow md)
+          , ", i32 ", show (metaLexicalBlockCol md)
+          , ", ", maybeShowMDName (metaLexicalBlockContext md)
           , "}"
           ]
-printMetadata md@Metadata { metaValueContent = cu@MetaDWCompileUnit {} } =
+printMetadata md@MetaDWCompileUnit {} =
   mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 17
-          , ", i32 ", show (metaCompileUnitLanguage cu)
-          , ", ", showMDString (metaCompileUnitSourceFile cu)
-          , ", ", showMDString (metaCompileUnitCompileDir cu)
-          , ", ", showMDString (metaCompileUnitProducer cu)
-          , ", ", showBool (metaCompileUnitIsMain cu)
-          , ", ", showBool (metaCompileUnitIsOpt cu)
-          , ", i32 ", show (metaCompileUnitVersion cu), "}"
-          ]
-printMetadata md@Metadata { metaValueContent = f@MetaDWFile {} } =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 41
-          , ", ", showMDString (metaFileSourceFile f)
-          , ", ", showMDString (metaFileSourceDir f)
-          -- , ", ", showMDName (metaFileCompileUnit f)
+          , ", i32 ", show (metaCompileUnitLanguage md)
+          , ", ", showMDString (metaCompileUnitSourceFile md)
+          , ", ", showMDString (metaCompileUnitCompileDir md)
+          , ", ", showMDString (metaCompileUnitProducer md)
+          , ", ", showBool (metaCompileUnitIsMain md)
+          , ", ", showBool (metaCompileUnitIsOpt md)
+          , ", i32 ", show (metaCompileUnitVersion md)
           , "}"
           ]
-printMetadata md@Metadata { metaValueContent = v@MetaDWVariable {} } =
+printMetadata md@MetaDWFile {} =
+  mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 41
+          , ", ", showMDString (metaFileSourceFile md)
+          , ", ", showMDString (metaFileSourceDir md)
+          , "}"
+          ]
+printMetadata md@MetaDWVariable {} =
   mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 52
-          , ", ", maybeShowMDName (metaGlobalVarContext v)
-          , ", ", showMDString (metaGlobalVarName v)
-          , ", ", showMDString (metaGlobalVarDisplayName v)
-          , ", ", showMDString (metaGlobalVarLinkageName v)
-          -- , ", ", showMDName (metaGlobalVarFile v)
-          , ", i32 ", show (metaGlobalVarLine v)
-          , ", ", maybeShowMDName (metaGlobalVarType v)
-          , ", ", showBool (metaGlobalVarStatic v)
-          , ", ", showBool (metaGlobalVarNotExtern v), "}"
+          , ", ", maybeShowMDName (metaGlobalVarContext md)
+          , ", ", showMDString (metaGlobalVarName md)
+          , ", ", showMDString (metaGlobalVarDisplayName md)
+          , ", ", showMDString (metaGlobalVarLinkageName md)
+          , ", i32 ", show (metaGlobalVarLine md)
+          , ", ", maybeShowMDName (metaGlobalVarType md)
+          , ", ", showBool (metaGlobalVarStatic md)
+          , ", ", showBool (metaGlobalVarNotExtern md)
+          , "}"
           ]
-printMetadata md@Metadata { metaValueContent = sp@MetaDWSubprogram {} } =
+printMetadata md@MetaDWSubprogram {} =
   mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 46
-          , ", ", maybeShowMDName (metaSubprogramContext sp)
-          , ", ", showMDString (metaSubprogramName sp)
-          , ", ", showMDString (metaSubprogramDisplayName sp)
-          , ", ", showMDString (metaSubprogramLinkageName sp)
-          -- , ", ", showMDName (metaSubprogramFile sp)
-          , ", i32 ", show (metaSubprogramLine sp)
-          , ", ", maybeShowMDName (metaSubprogramType sp)
-          , ", ", showBool (metaSubprogramStatic sp)
-          , ", ", showBool (metaSubprogramNotExtern sp)
-          , ", i32 ", show (metaSubprogramVirtuality sp)
-          , ", i32 ", show (metaSubprogramVirtIndex sp)
-          , ", ", maybeShowMDName (metaSubprogramBaseType sp)
-          , ", ", showBool (metaSubprogramArtificial sp)
-          , ", ", showBool (metaSubprogramOptimized sp), "}"
+          , ", ", maybeShowMDName (metaSubprogramContext md)
+          , ", ", showMDString (metaSubprogramName md)
+          , ", ", showMDString (metaSubprogramDisplayName md)
+          , ", ", showMDString (metaSubprogramLinkageName md)
+          , ", i32 ", show (metaSubprogramLine md)
+          , ", ", maybeShowMDName (metaSubprogramType md)
+          , ", ", showBool (metaSubprogramStatic md)
+          , ", ", showBool (metaSubprogramNotExtern md)
+          , ", i32 ", show (metaSubprogramVirtuality md)
+          , ", i32 ", show (metaSubprogramVirtIndex md)
+          , ", ", maybeShowMDName (metaSubprogramBaseType md)
+          , ", ", showBool (metaSubprogramArtificial md)
+          , ", ", showBool (metaSubprogramOptimized md)
+          , "}"
           ]
-printMetadata md@Metadata { metaValueContent = bt@MetaDWBaseType {} } =
+printMetadata md@MetaDWBaseType {} =
   mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 36
-          , ", ", maybeShowMDName (metaBaseTypeContext bt)
-          , ", ", showMDString (metaBaseTypeName bt)
-          , ", ", maybeShowMDName (metaBaseTypeFile bt)
-          , ", i32 ", show (metaBaseTypeLine bt)
-          , ", i32 ", show (metaBaseTypeSize bt)
-          , ", i32 ", show (metaBaseTypeAlign bt)
-          , ", i64 ", show (metaBaseTypeOffset bt)
-          , ", i32 ", show (metaBaseTypeFlags bt)
-          , ", i32 ", show (metaBaseTypeEncoding bt), "}"
+          , ", ", maybeShowMDName (metaBaseTypeContext md)
+          , ", ", showMDString (metaBaseTypeName md)
+          , ", ", maybeShowMDName (metaBaseTypeFile md)
+          , ", i32 ", show (metaBaseTypeLine md)
+          , ", i32 ", show (metaBaseTypeSize md)
+          , ", i32 ", show (metaBaseTypeAlign md)
+          , ", i64 ", show (metaBaseTypeOffset md)
+          , ", i32 ", show (metaBaseTypeFlags md)
+          , ", i32 ", show (metaBaseTypeEncoding md)
+          , "}"
           ]
-printMetadata md@Metadata { metaValueContent = dt@MetaDWDerivedType {} } =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", show (metaDerivedTypeTag dt)
-          , ", ", maybeShowMDName (metaDerivedTypeContext dt)
-          , ", ", showMDString (metaDerivedTypeName dt)
-          , ", ", maybeShowMDName (metaDerivedTypeFile dt)
-          , ", i32 ", show (metaDerivedTypeLine dt)
-          , ", i32 ", show (metaDerivedTypeSize dt)
-          , ", i32 ", show (metaDerivedTypeAlign dt)
-          , ", i64 ", show (metaDerivedTypeOffset dt)
-          , ", ", maybeShowMDName (metaDerivedTypeParent dt), "}"
+printMetadata md@MetaDWDerivedType {} =
+  mconcat [ showUntypedMDName md, " = metadata !{i32 ", show (metaDerivedTypeTag md)
+          , ", ", maybeShowMDName (metaDerivedTypeContext md)
+          , ", ", showMDString (metaDerivedTypeName md)
+          , ", ", maybeShowMDName (metaDerivedTypeFile md)
+          , ", i32 ", show (metaDerivedTypeLine md)
+          , ", i32 ", show (metaDerivedTypeSize md)
+          , ", i32 ", show (metaDerivedTypeAlign md)
+          , ", i64 ", show (metaDerivedTypeOffset md)
+          , ", ", maybeShowMDName (metaDerivedTypeParent md)
+          , "}"
           ]
-printMetadata md@Metadata { metaValueContent = ct@MetaDWCompositeType {} } =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", show (metaCompositeTypeTag ct)
-          , ", ", maybeShowMDName (metaCompositeTypeContext ct)
-          , ", ", showMDString (metaCompositeTypeName ct)
-          , ", ", maybeShowMDName (metaCompositeTypeFile ct)
-          , ", i32 ", show (metaCompositeTypeLine ct)
-          , ", i32 ", show (metaCompositeTypeSize ct)
-          , ", i32 ", show (metaCompositeTypeAlign ct)
-          , ", i64 ", show (metaCompositeTypeOffset ct)
-          , ", i32 ", show (metaCompositeTypeFlags ct)
-          , ", ", maybeShowMDName (metaCompositeTypeParent ct)
-          , ", ", maybeShowMDName (metaCompositeTypeMembers ct)
-          , ", i32 ", show (metaCompositeTypeRuntime ct), "}"
+printMetadata md@MetaDWCompositeType {} =
+  mconcat [ showUntypedMDName md, " = metadata !{i32 ", show (metaCompositeTypeTag md)
+          , ", ", maybeShowMDName (metaCompositeTypeContext md)
+          , ", ", showMDString (metaCompositeTypeName md)
+          , ", ", maybeShowMDName (metaCompositeTypeFile md)
+          , ", i32 ", show (metaCompositeTypeLine md)
+          , ", i32 ", show (metaCompositeTypeSize md)
+          , ", i32 ", show (metaCompositeTypeAlign md)
+          , ", i64 ", show (metaCompositeTypeOffset md)
+          , ", i32 ", show (metaCompositeTypeFlags md)
+          , ", ", maybeShowMDName (metaCompositeTypeParent md)
+          , ", ", maybeShowMDName (metaCompositeTypeMembers md)
+          , ", i32 ", show (metaCompositeTypeRuntime md)
+          , "}"
           ]
-printMetadata md@Metadata { metaValueContent = sr@MetaDWSubrange {} } =
+printMetadata md@MetaDWSubrange {} =
   mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 33
-          , ", i32 ", show (metaSubrangeLow sr)
-          , ", i32 ", show (metaSubrangeHigh sr), "}"
+          , ", i32 ", show (metaSubrangeLow md)
+          , ", i32 ", show (metaSubrangeHigh md)
+          , "}"
           ]
-printMetadata md@Metadata { metaValueContent = en@MetaDWEnumerator {} } =
+printMetadata md@MetaDWEnumerator {} =
   mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 40
-          , ", ", showMDString (metaEnumeratorName en)
-          , ", i32 ", show (metaEnumeratorValue en), "}"
+          , ", ", showMDString (metaEnumeratorName md)
+          , ", i32 ", show (metaEnumeratorValue md)
+          , "}"
           ]
-printMetadata md@Metadata { metaValueContent = l@MetaDWLocal {} } =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", show (metaLocalTag l)
-          , ", ", maybeShowMDName (metaLocalContext l)
-          , ", ", showMDString (metaLocalName l)
-          -- , ", ", showMDName (metaLocalFile l)
-          , ", i32 ", show (metaLocalLine l)
-          , ", ", maybeShowMDName (metaLocalType l), "}"
+printMetadata md@MetaDWLocal {} =
+  mconcat [ showUntypedMDName md, " = metadata !{i32 ", show (metaLocalTag md)
+          , ", ", maybeShowMDName (metaLocalContext md)
+          , ", ", showMDString (metaLocalName md)
+          , ", i32 ", show (metaLocalLine md)
+          , ", ", maybeShowMDName (metaLocalType md)
+          , "}"
           ]
-printMetadata md@Metadata { metaValueContent = MetadataList vals } =
+printMetadata md@(MetadataList _ vals) =
   mconcat [ showUntypedMDName md, " = metadata !{"
           , intercalate ", " (map showMDName vals)
           , "}"
           ]
-printMetadata md@Metadata { metaValueContent = n@MetaDWNamespace {} } =
+printMetadata md@MetaDWNamespace {} =
   mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 57
-          , ", ", showMDString (metaNamespaceName n)
-          , ", ", maybeShowMDName (metaNamespaceContext n)
-          -- , ", ", showMDName (metaNamespaceCompileUnit n)
-          , ", i32 ", show (metaNamespaceLine n)
+          , ", ", showMDString (metaNamespaceName md)
+          , ", ", maybeShowMDName (metaNamespaceContext md)
+          , ", i32 ", show (metaNamespaceLine md)
           , "}"
           ]
-printMetadata md@Metadata { metaValueContent = t@MetaDWTemplateTypeParameter {} } =
+printMetadata md@MetaDWTemplateTypeParameter {} =
   mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 0x2f
-          , ", ", showMDString (metaTemplateTypeParameterName t)
-          , ", i32 ", show (metaTemplateTypeParameterLine t)
-          , ", i32 ", show (metaTemplateTypeParameterCol t)
-          , ", ", maybeShowMDName (metaTemplateTypeParameterContext t)
-          , ", ", maybeShowMDName (metaTemplateTypeParameterType t)
+          , ", ", showMDString (metaTemplateTypeParameterName md)
+          , ", i32 ", show (metaTemplateTypeParameterLine md)
+          , ", i32 ", show (metaTemplateTypeParameterCol md)
+          , ", ", maybeShowMDName (metaTemplateTypeParameterContext md)
+          , ", ", maybeShowMDName (metaTemplateTypeParameterType md)
           , "}"
           ]
-printMetadata md@Metadata { metaValueContent = t@MetaDWTemplateValueParameter {} } =
+printMetadata md@MetaDWTemplateValueParameter {} =
   mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 0x30
-          , ", ", showMDString (metaTemplateValueParameterName t)
-          , ", i32 ", show (metaTemplateValueParameterLine t)
-          , ", i32 ", show (metaTemplateValueParameterCol t)
-          , ", ", maybeShowMDName (metaTemplateValueParameterContext t)
-          , ", ", maybeShowMDName (metaTemplateValueParameterType t)
-          , ", i64 ", show (metaTemplateValueParameterValue t)
+          , ", ", showMDString (metaTemplateValueParameterName md)
+          , ", i32 ", show (metaTemplateValueParameterLine md)
+          , ", i32 ", show (metaTemplateValueParameterCol md)
+          , ", ", maybeShowMDName (metaTemplateValueParameterContext md)
+          , ", ", maybeShowMDName (metaTemplateValueParameterType md)
+          , ", i64 ", show (metaTemplateValueParameterValue md)
           , "}"
           ]
-printMetadata md@Metadata { metaValueContent = MetadataUnknown s } =
+printMetadata md@(MetadataUnknown _ s) =
   mconcat [ showUntypedMDName md, " = metadata ", unpack s ]
 
 -- Take all of the asm chunks, break their contents into lines,
@@ -780,7 +782,7 @@ printInstNamePrefix i = case instructionName i of
 -- metadata.
 printDebugTag :: [Metadata] -> String
 printDebugTag [] = ""
-printDebugTag ((Metadata { metaValueUniqueId = uid }):_) = ", !dbg !" ++ show uid
+printDebugTag (md:_) = ", !dbg !" ++ show (metaValueUniqueId md)
 
 printType :: Type -> String
 printType (TypeInteger bits) = 'i' : show bits
