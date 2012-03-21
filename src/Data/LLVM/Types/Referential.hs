@@ -313,7 +313,7 @@ instance Eq Metadata where
   mv1 == mv2 = metaValueUniqueId mv1 == metaValueUniqueId mv2
 
 instance Ord Metadata where
-  mv1 `compare` mv2 = comparing metaValueUniqueId mv1 mv2
+  compare = comparing metaValueUniqueId
 
 instance Hashable Metadata where
   hash = fromIntegral . metaValueUniqueId
