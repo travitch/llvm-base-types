@@ -3,6 +3,8 @@
 module Data.LLVM.Types (
   Module(..),
   moduleGlobals,
+  findFunctionByName,
+  findMain,
   module Data.LLVM.Types.Attributes,
   module Data.LLVM.Types.Dwarf,
   module Data.LLVM.Types.Identifiers,
@@ -12,8 +14,9 @@ module Data.LLVM.Types (
 import Control.DeepSeq
 import Control.Monad.State.Strict
 import qualified Data.HashSet as S
-import Data.List ( intercalate )
+import Data.List ( find, intercalate )
 import Data.ByteString.Char8 ( ByteString )
+import qualified Data.ByteString.Char8 as BS
 
 import Data.LLVM.Internal.ForceModule
 import Data.LLVM.Internal.Printers
@@ -95,3 +98,14 @@ forceModule m = do
   mapM_ forceExternalValue (moduleExternalValues m)
   mapM_ forceExternalFunction (moduleExternalFunctions m)
   return $ moduleAssembly m `deepseq` m `seq` m
+
+-- | Find a function in the Module by its name.
+findFunctionByName :: Module -> String -> Maybe Function
+findFunctionByName m s = find isFunc $ moduleDefinedFunctions m
+  where
+    funcIdent = makeGlobalIdentifier (BS.pack s)
+    isFunc f = functionName f == funcIdent
+
+-- | Find the function named 'main' in the 'Module', if any.
+findMain :: Module -> Maybe Function
+findMain m = findFunctionByName m "main"
