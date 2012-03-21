@@ -166,7 +166,7 @@ printMetadata md@MetaDWLocal {} =
           ]
 printMetadata md@(MetadataList _ vals) =
   mconcat [ showUntypedMDName md, " = metadata !{"
-          , intercalate ", " (map showMDName vals)
+          , intercalate ", " (map maybeShowMDName vals)
           , "}"
           ]
 printMetadata md@MetaDWNamespace {} =

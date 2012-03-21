@@ -308,7 +308,7 @@ forceMetadataT m@(MetaDWLocal {}) = do
                                               ]
 forceMetadataT m@(MetadataList _ ms) = do
   m `seq` return ()
-  mapM_ metaForceIfNeeded ms
+  mapM_ (maybe (return ()) metaForceIfNeeded) ms
 forceMetadataT m@(MetaDWNamespace {}) = do
   m `seq` return ()
   mapM_ (maybe (return ()) metaForceIfNeeded) [ metaNamespaceContext m

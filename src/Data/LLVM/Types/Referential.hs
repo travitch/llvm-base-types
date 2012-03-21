@@ -300,7 +300,7 @@ data Metadata =
                     , metaUnknownValue :: !ByteString
                     }
   | MetadataList { metaValueUniqueId :: !UniqueId
-                 , metaListElements :: [Metadata]
+                 , metaListElements :: [Maybe Metadata]
                  }
 
 -- | The type of the unique identifiers that let us to work with
