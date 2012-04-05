@@ -7,6 +7,7 @@ module Data.LLVM.Internal.ForceModule (
   forceGlobalAlias,
   forceExternalValue,
   forceExternalFunction,
+  forceMetadataT
   ) where
 
 import Control.DeepSeq

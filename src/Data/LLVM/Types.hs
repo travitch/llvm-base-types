@@ -43,6 +43,14 @@ data Module = Module { moduleIdentifier :: ByteString
                      , moduleExternalValues :: [ExternalValue]
                      , moduleExternalFunctions :: [ExternalFunction]
                      , moduleAliases :: [GlobalAlias]
+                     , moduleEnumMetadata :: [Metadata]
+                       -- ^ All enumerations in the Module.  These
+                       -- should provide a bit more information than
+                       -- just combing the types appearing in
+                       -- interfaces.
+                     , moduleRetainedTypeMetadata :: [Metadata]
+                       -- ^ The retained types in the Module.  Only
+                       -- available with new-style metadata.
                      , moduleNextId :: UniqueId
                      }
 
@@ -97,6 +105,8 @@ forceModule m = do
   mapM_ forceFunction (moduleDefinedFunctions m)
   mapM_ forceExternalValue (moduleExternalValues m)
   mapM_ forceExternalFunction (moduleExternalFunctions m)
+  mapM_ forceMetadataT (moduleEnumMetadata m)
+  mapM_ forceMetadataT (moduleRetainedTypeMetadata m)
   return $ moduleAssembly m `deepseq` m `seq` m
 
 -- | Find a function in the Module by its name.
