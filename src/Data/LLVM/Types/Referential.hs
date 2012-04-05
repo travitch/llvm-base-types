@@ -175,6 +175,10 @@ data Metadata =
                       , metaCompileUnitIsOpt :: !Bool
                       , metaCompileUnitFlags :: !ByteString
                       , metaCompileUnitVersion :: !Int32
+                      , metaCompileUnitEnumTypes :: [Maybe Metadata]
+                      , metaCompileUnitRetainedTypes :: [Maybe Metadata]
+                      , metaCompileUnitSubprograms :: [Maybe Metadata]
+                      , metaCompileUnitGlobalVariables :: [Maybe Metadata]
                       }
   | MetaDWFile { metaValueUniqueId :: !UniqueId
                , metaFileSourceFile :: !ByteString

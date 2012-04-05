@@ -248,6 +248,10 @@ metaForceIfNeeded m = do
       md `seq` return ()
       forceMetadataT md
 
+maybeMetaForceIfNeeded :: Maybe Metadata -> ForceMonad ()
+maybeMetaForceIfNeeded Nothing = return ()
+maybeMetaForceIfNeeded (Just m) = metaForceIfNeeded m
+
 forceMetadataT :: Metadata -> ForceMonad ()
 forceMetadataT m@(MetaSourceLocation {}) = do
   m `seq` return ()
@@ -255,7 +259,11 @@ forceMetadataT m@(MetaSourceLocation {}) = do
 forceMetadataT m@(MetaDWLexicalBlock {}) = do
   m `seq` return ()
   mapM_ (maybe (return ()) metaForceIfNeeded) [ metaLexicalBlockContext m ]
-forceMetadataT m@(MetaDWCompileUnit {}) =
+forceMetadataT m@(MetaDWCompileUnit {}) = do
+  mapM_ maybeMetaForceIfNeeded $ metaCompileUnitEnumTypes m
+  mapM_ maybeMetaForceIfNeeded $ metaCompileUnitRetainedTypes m
+  mapM_ maybeMetaForceIfNeeded $ metaCompileUnitSubprograms m
+  mapM_ maybeMetaForceIfNeeded $ metaCompileUnitGlobalVariables m
   metaCompileUnitSourceFile m `seq` metaCompileUnitCompileDir m `seq`
     metaCompileUnitProducer m `seq` metaCompileUnitFlags m `seq` m `seq` return ()
 forceMetadataT m@(MetaDWFile {}) = do
