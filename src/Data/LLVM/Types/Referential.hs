@@ -163,7 +163,6 @@ data Metadata =
   | MetaDWNamespace { metaValueUniqueId :: !UniqueId
                     , metaNamespaceContext :: Maybe Metadata
                     , metaNamespaceName :: !ByteString
-                    -- , metaNamespaceCompileUnit :: Metadata
                     , metaNamespaceLine :: !Int32
                     }
   | MetaDWCompileUnit { metaValueUniqueId :: !UniqueId
@@ -183,14 +182,12 @@ data Metadata =
   | MetaDWFile { metaValueUniqueId :: !UniqueId
                , metaFileSourceFile :: !ByteString
                , metaFileSourceDir :: !ByteString
-               -- , metaFileCompileUnit :: Metadata
                }
   | MetaDWVariable { metaValueUniqueId :: !UniqueId
                    , metaGlobalVarContext :: Maybe Metadata
                    , metaGlobalVarName :: !ByteString
                    , metaGlobalVarDisplayName :: !ByteString
                    , metaGlobalVarLinkageName :: !ByteString
-                   -- , metaGlobalVarFile :: Metadata
                    , metaGlobalVarLine :: !Int32
                    , metaGlobalVarType :: Maybe Metadata
                    , metaGlobalVarStatic :: !Bool
@@ -201,7 +198,6 @@ data Metadata =
                      , metaSubprogramName :: !ByteString
                      , metaSubprogramDisplayName :: !ByteString
                      , metaSubprogramLinkageName :: !ByteString
-                     -- , metaSubprogramFile :: Metadata
                      , metaSubprogramLine :: !Int32
                      , metaSubprogramType :: Maybe Metadata
                      , metaSubprogramIsExplicit :: !Bool
@@ -228,7 +224,6 @@ data Metadata =
   | MetaDWDerivedType { metaValueUniqueId :: !UniqueId
                       , metaDerivedTypeTag :: !DW_TAG
                       , metaDerivedTypeContext :: Maybe Metadata
-                      -- , metaDerivedTypeCompileUnit :: Maybe Metadata
                       , metaDerivedTypeName :: !ByteString
                       , metaDerivedTypeFile :: Maybe Metadata
                       , metaDerivedTypeLine :: !Int32
@@ -247,7 +242,6 @@ data Metadata =
                         , metaCompositeTypeContext :: Maybe Metadata
                         , metaCompositeTypeName :: !ByteString
                         , metaCompositeTypeFile :: Maybe Metadata
-                        -- , metaCompositeTypeCompileUnit :: Maybe Metadata
                         , metaCompositeTypeLine :: !Int32
                         , metaCompositeTypeSize :: !Int64
                         , metaCompositeTypeAlign :: !Int64
@@ -277,7 +271,6 @@ data Metadata =
                 , metaLocalTag :: !DW_TAG
                 , metaLocalContext :: Maybe Metadata
                 , metaLocalName :: !ByteString
-                -- , metaLocalFile :: Metadata
                 , metaLocalLine :: !Int32
                 , metaLocalArgNo :: !Int32
                 , metaLocalType :: Maybe Metadata
