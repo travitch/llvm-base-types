@@ -9,6 +9,7 @@ module Data.LLVM.Types.Referential (
   ValueContent(..),
   Function(..),
   functionBody,
+  functionInstructions,
   functionExitBlock,
   functionExitBlocks,
   HasFunction(..),
@@ -372,6 +373,9 @@ functionIsVararg v = error $ printf "Value %d is not a function" (valueUniqueId 
 
 functionBody :: Function -> [BasicBlock]
 functionBody = V.toList . functionBodyVector
+
+functionInstructions :: Function -> [Instruction]
+functionInstructions = concatMap basicBlockInstructions . functionBody
 
 functionEntryInstruction :: Function -> Instruction
 functionEntryInstruction f = e1
