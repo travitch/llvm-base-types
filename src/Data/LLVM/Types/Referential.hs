@@ -10,6 +10,7 @@ module Data.LLVM.Types.Referential (
   Function(..),
   functionBody,
   functionInstructions,
+  functionReturnType,
   functionExitBlock,
   functionExitBlocks,
   HasFunction(..),
@@ -39,6 +40,8 @@ module Data.LLVM.Types.Referential (
   basicBlockSplitPhiNodes,
   valueContent',
   stripBitcasts,
+  structTypeToName,
+  stripPointerTypes,
   -- * Debug info
   llvmDebugVersion
   ) where
@@ -47,6 +50,7 @@ import Control.DeepSeq
 import Data.ByteString.Char8 ( ByteString, isPrefixOf )
 import Data.Hashable
 import Data.Int
+import Data.List ( stripPrefix )
 import Data.Ord ( comparing )
 import Data.Vector ( Vector )
 import qualified Data.Vector as V
@@ -102,6 +106,24 @@ data Type = TypeInteger !Int
           | TypePointer Type !Int
           | TypeStruct (Maybe String) [Type] !Bool -- isPacked
             -- ^ A wrapper for typedefs
+
+-- | Strip off the struct. prefix and any .NNN suffixes added by LLVM
+-- to a struct type name.  If the type is not a struct type, return
+-- Nothing.
+structTypeToName :: Type -> Maybe String
+structTypeToName (TypeStruct (Just n) _ _) =
+  case stripPrefix "struct." n of
+    Nothing -> Just $ takeWhile (/= '.') n
+    Just n' -> Just $ takeWhile (/= '.') n'
+structTypeToName _ = Nothing
+
+-- | Take a type and remove all of its pointer wrappers
+stripPointerTypes :: Type -> Type
+stripPointerTypes t =
+  case t of
+    TypePointer t' _ -> stripPointerTypes t'
+    _ -> t
+
 
 -- Deriving an Ord instance won't work because Type is a cyclic data
 -- structure and the derived instances end up stuck in infinite loops.
@@ -372,6 +394,10 @@ data Function = Function { functionType :: Type
 functionIsVararg :: Function -> Bool
 functionIsVararg Function { functionType = TypeFunction _ _ isva } = isva
 functionIsVararg v = error $ printf "Value %d is not a function" (valueUniqueId v)
+
+functionReturnType :: Function -> Type
+functionReturnType f = rt where
+  TypeFunction rt _ _ = functionType f
 
 functionBody :: Function -> [BasicBlock]
 functionBody = V.toList . functionBodyVector
