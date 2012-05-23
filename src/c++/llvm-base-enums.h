@@ -132,7 +132,6 @@ typedef enum {
                    // = value to match, op[2n+1] = dest for match
   VAL_INDIRECTBRINST, // op[0] = address, rest are possible dests
   VAL_INVOKEINST,
-  VAL_UNWINDINST,
   VAL_RESUMEINST,
   VAL_UNREACHABLEINST,
   VAL_ADDINST,

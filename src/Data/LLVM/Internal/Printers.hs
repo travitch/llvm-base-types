@@ -320,7 +320,6 @@ printValue v = case valueContent v of
         compose [ "indirectbr", printConstOrName addr
                 , "[", intercalate ", " $ map (printConstOrName . Value) targets, "]"
                 ]
-      UnwindInst { } -> "unwind"
       UnreachableInst { } -> "unreachable"
       AddInst { } -> printFlaggedBinaryOp "add" i
       SubInst { } -> printFlaggedBinaryOp "sub" i

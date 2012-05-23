@@ -46,7 +46,6 @@ forceInstruction i = do
                        } -> do
       foldr seq (return ()) targets
       forceValueIfConstant addr
-    UnwindInst { } -> return ()
     UnreachableInst { } -> return ()
     ExtractElementInst { extractElementVector = vec
                        , extractElementIndex = idx

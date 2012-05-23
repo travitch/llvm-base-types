@@ -391,17 +391,21 @@ data Function = Function { functionType :: Type
                          , functionAlign :: !Int64
                          , functionGCName :: !(Maybe ByteString)
                          }
+
 functionIsVararg :: Function -> Bool
 functionIsVararg Function { functionType = TypeFunction _ _ isva } = isva
 functionIsVararg v = error $ printf "Value %d is not a function" (valueUniqueId v)
 
+{-# INLINABLE functionReturnType #-}
 functionReturnType :: Function -> Type
 functionReturnType f = rt where
   TypeFunction rt _ _ = functionType f
 
+{-# INLINABLE functionBody #-}
 functionBody :: Function -> [BasicBlock]
 functionBody = V.toList . functionBodyVector
 
+{-# INLINABLE functionInstructions #-}
 functionInstructions :: Function -> [Instruction]
 functionInstructions = concatMap basicBlockInstructions . functionBody
 
@@ -433,7 +437,6 @@ functionExitInstructions f =
     is = concatMap basicBlockInstructions (functionBody f)
     isRetInst RetInst {} = True
     isRetInst UnreachableInst {} = True
-    isRetInst UnwindInst {} = True
     isRetInst _ = False
 
 functionExitBlock :: Function -> BasicBlock
@@ -460,7 +463,6 @@ functionExitBlocks f =
       case basicBlockTerminatorInstruction bb of
         RetInst {} -> True
         UnreachableInst {} -> True
-        UnwindInst {} -> True
         ResumeInst {} -> True
         _ -> False
 
@@ -511,15 +513,18 @@ data BasicBlock = BasicBlock { basicBlockName :: !Identifier
                              , basicBlockFunction :: Function
                              }
 
+{-# INLINABLE basicBlockInstructions #-}
 basicBlockInstructions :: BasicBlock -> [Instruction]
 basicBlockInstructions = V.toList . basicBlockInstructionVector
 
+{-# INLINABLE basicBlockTerminatorInstruction #-}
 basicBlockTerminatorInstruction :: BasicBlock -> Instruction
 basicBlockTerminatorInstruction bb =
   case null (basicBlockInstructions bb) of
     True -> error "Basic blocks cannot be empty"
     False -> last (basicBlockInstructions bb)
 
+{-# INLINABLE firstNonPhiInstruction #-}
 -- | Get the first instruction in a basic block that is not a Phi
 -- node.  This is total because basic blocks cannot be empty and must
 -- end in a terminator instruction (Phi nodes are not terminators).
@@ -528,18 +533,21 @@ firstNonPhiInstruction bb = i
   where
     i : _ = dropWhile instructionIsPhiNode (basicBlockInstructions bb)
 
+{-# INLINABLE instructionIsPhiNode #-}
 -- | Predicate to test an instruction to see if it is a phi node
 instructionIsPhiNode :: Instruction -> Bool
 instructionIsPhiNode v = case v of
   PhiNode {} -> True
   _ -> False
 
+{-# INLINABLE isFirstNonPhiInstruction #-}
 -- | Determine if @i@ is the first non-phi instruction in its block.
 isFirstNonPhiInstruction :: Instruction -> Bool
 isFirstNonPhiInstruction i = i == firstNonPhiInstruction bb
   where
     Just bb = instructionBasicBlock i
 
+{-# INLINABLE basicBlockSplitPhiNodes #-}
 -- | Split a block's instructions into phi nodes and the rest
 basicBlockSplitPhiNodes :: BasicBlock -> ([Instruction], [Instruction])
 basicBlockSplitPhiNodes = span instructionIsPhiNode . basicBlockInstructions
@@ -666,6 +674,7 @@ externalIsIntrinsic =
   isPrefixOf "llvm." . identifierContent . externalFunctionName
 
 
+{-# INLINABLE instructionIsTerminator #-}
 -- | Determine if an instruction is a Terminator instruction (i.e.,
 -- ends a BasicBlock)
 instructionIsTerminator :: Instruction -> Bool
@@ -674,7 +683,6 @@ instructionIsTerminator UnconditionalBranchInst {} = True
 instructionIsTerminator BranchInst {} = True
 instructionIsTerminator SwitchInst {} = True
 instructionIsTerminator IndirectBranchInst {} = True
-instructionIsTerminator UnwindInst {} = True
 instructionIsTerminator ResumeInst {} = True
 instructionIsTerminator UnreachableInst {} = True
 instructionIsTerminator InvokeInst {} = True
@@ -689,7 +697,6 @@ instructionType i =
     BranchInst {} -> TypeVoid
     SwitchInst {} -> TypeVoid
     IndirectBranchInst {} -> TypeVoid
-    UnwindInst {} -> TypeVoid
     ResumeInst {} -> TypeVoid
     UnreachableInst {} -> TypeVoid
     StoreInst {} -> TypeVoid
@@ -706,7 +713,6 @@ instructionName i =
     BranchInst {} -> Nothing
     SwitchInst {} -> Nothing
     IndirectBranchInst {} -> Nothing
-    UnwindInst {} -> Nothing
     ResumeInst {} -> Nothing
     UnreachableInst {} -> Nothing
     StoreInst {} -> Nothing
@@ -747,10 +753,6 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                                       }
                    -- ^ The target must be derived from a blockaddress constant
                    -- The list is a list of possible target destinations
-                 | UnwindInst { instructionMetadata :: [Metadata]
-                              , instructionUniqueId :: !UniqueId
-                              , instructionBasicBlock :: Maybe BasicBlock
-                              }
                  | ResumeInst { instructionMetadata :: [Metadata]
                               , instructionUniqueId :: !UniqueId
                               , instructionBasicBlock :: Maybe BasicBlock
@@ -1210,6 +1212,7 @@ data ValueContent = FunctionC Function
                   | InstructionC Instruction
                   | ConstantC Constant
 
+{-# INLINABLE valueContent' #-}
 -- | A version of @valueContent@ that ignores (peeks through)
 -- bitcasts.  This is most useful in view patterns.
 valueContent' :: IsValue a => a -> ValueContent
@@ -1218,6 +1221,7 @@ valueContent' v = case valueContent v of
   ConstantC ConstantValue { constantInstruction = BitcastInst { castedValue = cv } } -> valueContent' cv
   _ -> valueContent v
 
+{-# INLINABLE stripBitcasts #-}
 -- | Strip all wrapper bitcasts from a Value
 stripBitcasts :: IsValue a => a -> Value
 stripBitcasts v = case valueContent v of
