@@ -25,8 +25,9 @@ library
   exposed-modules: Data.LLVM.Types,
                    Data.LLVM.Internal.Paths
   other-modules: Paths_llvm_base_types,
+                 Data.LLVM.Internal.DataLayout,
                  Data.LLVM.Internal.ForceModule,
-                 Data.LLVM.Internal.Printers
+                 Data.LLVM.Internal.Printers,
                  Data.LLVM.Types.Dwarf,
                  Data.LLVM.Types.Identifiers,
                  Data.LLVM.Types.Attributes,

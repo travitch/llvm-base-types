@@ -9,6 +9,7 @@ module Data.LLVM.Types (
   module Data.LLVM.Types.Dwarf,
   module Data.LLVM.Types.Identifiers,
   module Data.LLVM.Types.Referential,
+  module Data.LLVM.Internal.DataLayout
   ) where
 
 import Control.DeepSeq
@@ -20,6 +21,7 @@ import qualified Data.ByteString.Char8 as BS
 
 import Data.LLVM.Internal.ForceModule
 import Data.LLVM.Internal.Printers
+import Data.LLVM.Internal.DataLayout
 import Data.LLVM.Types.Attributes
 import Data.LLVM.Types.Dwarf
 import Data.LLVM.Types.Identifiers
@@ -29,7 +31,8 @@ import Data.LLVM.Types.Referential
 -- is the type returned from all of the parsers, and all analysis
 -- begins at the Module level.
 data Module = Module { moduleIdentifier :: ByteString
-                     , moduleDataLayout :: ByteString -- DataLayout
+                     , moduleDataLayout :: DataLayout
+                     , moduleDataLayoutString :: ByteString
                        -- ^ The layout of the primitive datatypes on
                        -- the architecture this module was generated
                        -- for
@@ -59,7 +62,7 @@ data Module = Module { moduleIdentifier :: ByteString
 -- FIXME: Print out the external values and functions
 printModule :: Module -> String
 printModule Module { moduleIdentifier = _
-                   , moduleDataLayout = layout
+                   , moduleDataLayoutString = layout
                    , moduleTarget = triple
                    , moduleAssembly = asm
                    , moduleAliases = aliases
