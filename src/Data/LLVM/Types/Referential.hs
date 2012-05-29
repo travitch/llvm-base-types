@@ -519,10 +519,7 @@ basicBlockInstructions = V.toList . basicBlockInstructionVector
 
 {-# INLINABLE basicBlockTerminatorInstruction #-}
 basicBlockTerminatorInstruction :: BasicBlock -> Instruction
-basicBlockTerminatorInstruction bb =
-  case null (basicBlockInstructions bb) of
-    True -> error "Basic blocks cannot be empty"
-    False -> last (basicBlockInstructions bb)
+basicBlockTerminatorInstruction = V.last . basicBlockInstructionVector
 
 {-# INLINABLE firstNonPhiInstruction #-}
 -- | Get the first instruction in a basic block that is not a Phi
