@@ -827,3 +827,6 @@ instance Show Instruction where
 
 instance Show Function where
   show = printValue . Value
+
+instance Show GlobalVariable where
+  show = printValue . Value
