@@ -54,6 +54,9 @@ data Module = Module { moduleIdentifier :: ByteString
                      , moduleRetainedTypeMetadata :: [Metadata]
                        -- ^ The retained types in the Module.  Only
                        -- available with new-style metadata.
+                     , moduleRetainedTypes :: [Type]
+                       -- ^ All of the IR-level types retained by the
+                       -- module.
                      , moduleNextId :: UniqueId
                      }
 
