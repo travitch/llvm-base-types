@@ -50,11 +50,11 @@ import Control.DeepSeq
 import Data.ByteString.Char8 ( ByteString, isPrefixOf )
 import Data.Hashable
 import Data.Int
-import Data.List ( stripPrefix )
 import Data.Ord ( comparing )
 import Data.Vector ( Vector )
 import qualified Data.Vector as V
 import Text.Printf
+import Text.Regex.TDFA
 
 import Data.LLVM.Types.Attributes
 import Data.LLVM.Types.Dwarf
@@ -112,9 +112,17 @@ data Type = TypeInteger !Int
 -- Nothing.
 structTypeToName :: Type -> Maybe String
 structTypeToName (TypeStruct (Just n) _ _) =
-  case stripPrefix "struct." n of
-    Nothing -> Just $ takeWhile (/= '.') n
-    Just n' -> Just $ takeWhile (/= '.') n'
+  case captures of
+    [] -> Nothing
+    [pfx] -> Just pfx
+    [pfx, _] -> Just pfx
+    _ -> Nothing
+  where
+    pattern :: String
+    pattern = "([[:alpha:]]+\\.[[:alnum:]_]+)(\\.[[:digit:]]+)?"
+    m :: (String, String, String, [String])
+    m = n =~ pattern
+    (_, _, _, captures) = m
 structTypeToName _ = Nothing
 
 -- | Take a type and remove all of its pointer wrappers
