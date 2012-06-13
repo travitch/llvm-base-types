@@ -19,7 +19,7 @@ module Data.LLVM.Types.Attributes (
 
 import Control.DeepSeq
 import Data.Default
-import Data.ByteString.Char8 ( ByteString, unpack )
+import Data.Text ( Text, unpack )
 
 {#enum LinkageType {} deriving (Eq) #}
 instance Show LinkageType where
@@ -174,7 +174,7 @@ instance Default CallingConvention where
   def = CC_C
 
  -- Representing Assembly
-data Assembly = Assembly !ByteString
+data Assembly = Assembly !Text
                 deriving (Eq, Ord)
 
 instance Show Assembly where
@@ -248,7 +248,7 @@ instance Show FunctionAttribute where
   show FASSP = "ssp"
   show FASSPReq = "sspreq"
 
-data TargetTriple = TargetTriple ByteString
+data TargetTriple = TargetTriple Text
                     deriving (Eq)
 
 instance Show TargetTriple where

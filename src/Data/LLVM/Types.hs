@@ -15,9 +15,12 @@ module Data.LLVM.Types (
 import Control.DeepSeq
 import Control.Monad.State.Strict
 import qualified Data.HashSet as S
-import Data.List ( find, intercalate )
-import Data.ByteString.Char8 ( ByteString )
-import qualified Data.ByteString.Char8 as BS
+import Data.List ( find, intersperse )
+import Data.Monoid
+import Data.Text ( Text )
+import qualified Data.Text as T
+import Data.Text.Lazy ( toStrict )
+import Data.Text.Lazy.Builder
 
 import Data.LLVM.Internal.ForceModule
 import Data.LLVM.Internal.Printers
@@ -30,13 +33,13 @@ import Data.LLVM.Types.Referential
 -- | This is the top-level representation of a program in LLVM.  This
 -- is the type returned from all of the parsers, and all analysis
 -- begins at the Module level.
-data Module = Module { moduleIdentifier :: ByteString
+data Module = Module { moduleIdentifier :: Text
                      , moduleDataLayout :: DataLayout
-                     , moduleDataLayoutString :: ByteString
+                     , moduleDataLayoutString :: Text
                        -- ^ The layout of the primitive datatypes on
                        -- the architecture this module was generated
                        -- for
-                     , moduleTarget :: ByteString -- TargetTriple
+                     , moduleTarget :: Text -- TargetTriple
                        -- ^ The architecture that this module was
                        -- generated for
                      , moduleAssembly :: Assembly
@@ -63,7 +66,7 @@ data Module = Module { moduleIdentifier :: ByteString
 -- | Implementation of the Show instance
 --
 -- FIXME: Print out the external values and functions
-printModule :: Module -> String
+printModule :: Module -> Builder
 printModule Module { moduleIdentifier = _
                    , moduleDataLayoutString = layout
                    , moduleTarget = triple
@@ -74,16 +77,18 @@ printModule Module { moduleIdentifier = _
                    , moduleExternalValues = _ -- evars
                    , moduleExternalFunctions = _ -- efuncs
                    } =
-  concat [ layoutS, "\n", tripleS, "\n", asmS, "\n"
-         , aliasesS, "\n", varS, "\n", funcS, "\n"
-         ]
+  mconcat [ layoutS, singleton '\n', tripleS, singleton '\n', asmS, singleton '\n'
+          , aliasesS, singleton '\n', varS, singleton '\n', funcS, singleton '\n'
+          ]
   where
-    layoutS = concat [ "target datalayout = \"", show layout, "\"" ]
-    tripleS = concat [ "target triple = \"", show triple, "\"" ]
+    layoutS = mconcat [ fromString "target datalayout = \""
+                      , fromString (show layout), singleton '"'
+                      ]
+    tripleS = mconcat [ fromString "target triple = \"", fromString (show triple), singleton '"' ]
     asmS = printAsm asm
-    aliasesS = intercalate "\n\n" $ map (printValue . Value) aliases
-    varS = intercalate "\n\n" $ map (printValue . Value) vars
-    funcS = intercalate "\n\n" $ map (printValue . Value) funcs
+    aliasesS = mconcat $ intersperse (fromString "\n\n") $ map (printValue . Value) aliases
+    varS = mconcat $ intersperse (fromString "\n\n") $ map (printValue . Value) vars
+    funcS = mconcat $ intersperse (fromString "\n\n") $ map (printValue . Value) funcs
 
 -- | Get a list of all types of globals in the Module (functions,
 -- aliases, and global variables)
@@ -96,7 +101,7 @@ moduleGlobals m = concat [ map Value $ moduleAliases m
                          ]
 
 instance Show Module where
-  show = printModule
+  show = T.unpack . toStrict . toLazyText . printModule
 
 instance NFData Module where
   rnf m = evalState (forceModule m) (S.empty, S.empty) `seq` ()
@@ -119,7 +124,7 @@ forceModule m = do
 findFunctionByName :: Module -> String -> Maybe Function
 findFunctionByName m s = find isFunc $ moduleDefinedFunctions m
   where
-    funcIdent = makeGlobalIdentifier (BS.pack s)
+    funcIdent = makeGlobalIdentifier (T.pack s)
     isFunc f = functionName f == funcIdent
 
 -- | Find the function named 'main' in the 'Module', if any.

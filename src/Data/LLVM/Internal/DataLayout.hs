@@ -5,8 +5,8 @@ module Data.LLVM.Internal.DataLayout (
   parseDataLayout
   ) where
 
-import Data.ByteString.Char8 ( ByteString )
-import qualified Data.ByteString.Char8 as SBS
+import Data.Text ( Text )
+import qualified Data.Text as T
 import Data.Default
 import Data.List ( foldl' )
 
@@ -53,10 +53,10 @@ instance Default DataLayout where
                    , targetStackObjectPrefs = [ AlignmentPref 0 64 64 ]
                    }
 
-parseDataLayout :: ByteString -> Either String DataLayout
+parseDataLayout :: Text -> Either String DataLayout
 parseDataLayout dl = foldr parseModifier (Right def) modifiers
   where
-    modifiers = SBS.split '-' dl
+    modifiers = T.split (=='-') dl
 
 -- | Split a string on a separator
 splitOn :: Char -> String -> [String]
@@ -89,10 +89,10 @@ parseInt s =
     [(i, "")] -> Just i
     _ -> Nothing
 
-parseModifier :: ByteString -> Either String DataLayout -> Either String DataLayout
+parseModifier :: Text -> Either String DataLayout -> Either String DataLayout
 parseModifier _ acc@(Left _) = acc
 parseModifier m (Right acc) =
-  case SBS.unpack m of
+  case T.unpack m of
     ['E'] -> Right acc { targetEndianness = EndianBig }
     ['e'] -> Right acc { targetEndianness = EndianLittle }
     'p' : ':' : rest ->
@@ -134,4 +134,4 @@ parseModifier m (Right acc) =
       case mapM parseInt (splitOn ':' rest) of
         Nothing -> Left ("Expected int list: " ++ rest)
         Just is -> Right acc { targetIntegerWidths = is }
-    _ -> Left ("Unexpected data layout specifier: " ++ SBS.unpack m)
+    _ -> Left ("Unexpected data layout specifier: " ++ T.unpack m)

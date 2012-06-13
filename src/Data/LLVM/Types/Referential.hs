@@ -48,10 +48,10 @@ module Data.LLVM.Types.Referential (
   ) where
 
 import Control.DeepSeq
-import Data.ByteString.Char8 ( ByteString, isPrefixOf )
 import Data.Hashable
 import Data.Int
 import Data.Ord ( comparing )
+import Data.Text ( Text, isPrefixOf )
 import Data.Vector ( Vector )
 import qualified Data.Vector as V
 import Text.Printf
@@ -197,17 +197,17 @@ data Metadata =
                        }
   | MetaDWNamespace { metaValueUniqueId :: !UniqueId
                     , metaNamespaceContext :: Maybe Metadata
-                    , metaNamespaceName :: !ByteString
+                    , metaNamespaceName :: !Text
                     , metaNamespaceLine :: !Int32
                     }
   | MetaDWCompileUnit { metaValueUniqueId :: !UniqueId
                       , metaCompileUnitLanguage :: !DW_LANG
-                      , metaCompileUnitSourceFile :: !ByteString
-                      , metaCompileUnitCompileDir :: !ByteString
-                      , metaCompileUnitProducer :: !ByteString
+                      , metaCompileUnitSourceFile :: !Text
+                      , metaCompileUnitCompileDir :: !Text
+                      , metaCompileUnitProducer :: !Text
                       , metaCompileUnitIsMain :: !Bool
                       , metaCompileUnitIsOpt :: !Bool
-                      , metaCompileUnitFlags :: !ByteString
+                      , metaCompileUnitFlags :: !Text
                       , metaCompileUnitVersion :: !Int32
                       , metaCompileUnitEnumTypes :: [Maybe Metadata]
                       , metaCompileUnitRetainedTypes :: [Maybe Metadata]
@@ -215,14 +215,14 @@ data Metadata =
                       , metaCompileUnitGlobalVariables :: [Maybe Metadata]
                       }
   | MetaDWFile { metaValueUniqueId :: !UniqueId
-               , metaFileSourceFile :: !ByteString
-               , metaFileSourceDir :: !ByteString
+               , metaFileSourceFile :: !Text
+               , metaFileSourceDir :: !Text
                }
   | MetaDWVariable { metaValueUniqueId :: !UniqueId
                    , metaGlobalVarContext :: Maybe Metadata
-                   , metaGlobalVarName :: !ByteString
-                   , metaGlobalVarDisplayName :: !ByteString
-                   , metaGlobalVarLinkageName :: !ByteString
+                   , metaGlobalVarName :: !Text
+                   , metaGlobalVarDisplayName :: !Text
+                   , metaGlobalVarLinkageName :: !Text
                    , metaGlobalVarLine :: !Int32
                    , metaGlobalVarType :: Maybe Metadata
                    , metaGlobalVarStatic :: !Bool
@@ -230,9 +230,9 @@ data Metadata =
                    }
   | MetaDWSubprogram { metaValueUniqueId :: !UniqueId
                      , metaSubprogramContext :: Maybe Metadata
-                     , metaSubprogramName :: !ByteString
-                     , metaSubprogramDisplayName :: !ByteString
-                     , metaSubprogramLinkageName :: !ByteString
+                     , metaSubprogramName :: !Text
+                     , metaSubprogramDisplayName :: !Text
+                     , metaSubprogramLinkageName :: !Text
                      , metaSubprogramLine :: !Int32
                      , metaSubprogramType :: Maybe Metadata
                      , metaSubprogramIsExplicit :: !Bool
@@ -247,7 +247,7 @@ data Metadata =
                      }
   | MetaDWBaseType { metaValueUniqueId :: !UniqueId
                    , metaBaseTypeContext :: Maybe Metadata
-                   , metaBaseTypeName :: !ByteString
+                   , metaBaseTypeName :: !Text
                    , metaBaseTypeFile :: Maybe Metadata
                    , metaBaseTypeLine :: !Int32
                    , metaBaseTypeSize :: !Int64
@@ -259,7 +259,7 @@ data Metadata =
   | MetaDWDerivedType { metaValueUniqueId :: !UniqueId
                       , metaDerivedTypeTag :: !DW_TAG
                       , metaDerivedTypeContext :: Maybe Metadata
-                      , metaDerivedTypeName :: !ByteString
+                      , metaDerivedTypeName :: !Text
                       , metaDerivedTypeFile :: Maybe Metadata
                       , metaDerivedTypeLine :: !Int32
                       , metaDerivedTypeSize :: !Int64
@@ -275,7 +275,7 @@ data Metadata =
   | MetaDWCompositeType { metaValueUniqueId :: !UniqueId
                         , metaCompositeTypeTag :: !DW_TAG
                         , metaCompositeTypeContext :: Maybe Metadata
-                        , metaCompositeTypeName :: !ByteString
+                        , metaCompositeTypeName :: !Text
                         , metaCompositeTypeFile :: Maybe Metadata
                         , metaCompositeTypeLine :: !Int32
                         , metaCompositeTypeSize :: !Int64
@@ -299,13 +299,13 @@ data Metadata =
                    , metaSubrangeHigh :: !Int64
                    }
   | MetaDWEnumerator { metaValueUniqueId :: !UniqueId
-                     , metaEnumeratorName :: !ByteString
+                     , metaEnumeratorName :: !Text
                      , metaEnumeratorValue :: !Int64
                      }
   | MetaDWLocal { metaValueUniqueId :: !UniqueId
                 , metaLocalTag :: !DW_TAG
                 , metaLocalContext :: Maybe Metadata
-                , metaLocalName :: !ByteString
+                , metaLocalName :: !Text
                 , metaLocalLine :: !Int32
                 , metaLocalArgNo :: !Int32
                 , metaLocalType :: Maybe Metadata
@@ -318,7 +318,7 @@ data Metadata =
                                 , metaTemplateTypeParameterType :: Maybe Metadata
                                 , metaTemplateTypeParameterLine :: !Int32
                                 , metaTemplateTypeParameterCol :: !Int32
-                                , metaTemplateTypeParameterName :: !ByteString
+                                , metaTemplateTypeParameterName :: !Text
                                 }
   | MetaDWTemplateValueParameter { metaValueUniqueId :: !UniqueId
                                  , metaTemplateValueParameterContext :: Maybe Metadata
@@ -326,10 +326,10 @@ data Metadata =
                                  , metaTemplateValueParameterLine :: !Int32
                                  , metaTemplateValueParameterCol :: !Int32
                                  , metaTemplateValueParameterValue :: !Int64
-                                 , metaTemplateValueParameterName :: !ByteString
+                                 , metaTemplateValueParameterName :: !Text
                                  }
   | MetadataUnknown { metaValueUniqueId :: !UniqueId
-                    , metaUnknownValue :: !ByteString
+                    , metaUnknownValue :: !Text
                     }
   | MetadataList { metaValueUniqueId :: !UniqueId
                  , metaListElements :: [Maybe Metadata]
@@ -397,9 +397,9 @@ data Function = Function { functionType :: Type
                          , functionCC :: !CallingConvention
                          , functionRetAttrs :: [ParamAttribute]
                          , functionAttrs :: [FunctionAttribute]
-                         , functionSection :: !(Maybe ByteString)
+                         , functionSection :: !(Maybe Text)
                          , functionAlign :: !Int64
-                         , functionGCName :: !(Maybe ByteString)
+                         , functionGCName :: !(Maybe Text)
                          }
 
 functionIsVararg :: Function -> Bool
@@ -583,7 +583,7 @@ data GlobalVariable = GlobalVariable { globalVariableType :: Type
                                      , globalVariableVisibility :: !VisibilityStyle
                                      , globalVariableInitializer :: Maybe Value
                                      , globalVariableAlignment :: !Int64
-                                     , globalVariableSection :: !(Maybe ByteString)
+                                     , globalVariableSection :: !(Maybe Text)
                                      , globalVariableIsThreadLocal :: !Bool
                                      , globalVariableIsConstant :: !Bool
                                      }
@@ -1172,7 +1172,7 @@ data Constant = UndefValue { constantType :: Type
                             }
               | ConstantString { constantType :: Type
                                , constantUniqueId :: !UniqueId
-                               , constantStringValue :: !ByteString
+                               , constantStringValue :: !Text
                                }
               | ConstantStruct { constantType :: Type
                                , constantUniqueId :: !UniqueId
@@ -1188,8 +1188,8 @@ data Constant = UndefValue { constantType :: Type
                               }
               | InlineAsm { constantType :: Type
                           , constantUniqueId :: !UniqueId
-                          , inlineAsmString :: !ByteString
-                          , inlineAsmConstraints :: !ByteString
+                          , inlineAsmString :: !Text
+                          , inlineAsmConstraints :: !Text
                           }
 
 instance IsValue Constant where

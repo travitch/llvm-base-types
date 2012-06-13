@@ -4,6 +4,7 @@ module Data.LLVM.Types.Identifiers (
   -- * Accessor
   identifierAsString,
   identifierContent,
+  isAnonymousIdentifier,
   -- * Builders
   makeAnonymousLocal,
   makeLocalIdentifier,
@@ -13,16 +14,16 @@ module Data.LLVM.Types.Identifiers (
 
 import Control.DeepSeq
 import Data.Hashable
-import Data.ByteString.Char8 ( ByteString, unpack, pack )
+import Data.Text ( Text, unpack, pack )
 
-data Identifier = LocalIdentifier { _identifierContent :: !ByteString
+data Identifier = LocalIdentifier { _identifierContent :: !Text
                                   , _identifierHash :: !Int
                                   }
                 | AnonymousLocalIdentifier { _identifierNumber :: !Int }
-                | GlobalIdentifier { _identifierContent :: !ByteString
+                | GlobalIdentifier { _identifierContent :: !Text
                                    , _identifierHash :: !Int
                                    }
-                | MetaIdentifier { _identifierContent :: !ByteString
+                | MetaIdentifier { _identifierContent :: !Text
                                  , _identifierHash :: !Int
                                  }
                   deriving (Eq, Ord)
@@ -44,19 +45,19 @@ instance NFData Identifier where
 makeAnonymousLocal :: Int -> Identifier
 makeAnonymousLocal = AnonymousLocalIdentifier
 
-makeLocalIdentifier :: ByteString -> Identifier
+makeLocalIdentifier :: Text -> Identifier
 makeLocalIdentifier t =
   LocalIdentifier { _identifierContent = t
                   , _identifierHash = hash t
                   }
 
-makeGlobalIdentifier :: ByteString -> Identifier
+makeGlobalIdentifier :: Text -> Identifier
 makeGlobalIdentifier t =
   GlobalIdentifier { _identifierContent = t
                    , _identifierHash = hash t
                    }
 
-makeMetaIdentifier :: ByteString -> Identifier
+makeMetaIdentifier :: Text -> Identifier
 makeMetaIdentifier t =
   MetaIdentifier { _identifierContent = t
                  , _identifierHash = hash t
@@ -66,6 +67,10 @@ identifierAsString :: Identifier -> String
 identifierAsString (AnonymousLocalIdentifier n) = show n
 identifierAsString i = unpack (identifierContent i)
 
-identifierContent :: Identifier -> ByteString
+identifierContent :: Identifier -> Text
 identifierContent (AnonymousLocalIdentifier n) = pack (show n)
 identifierContent i = _identifierContent i
+
+isAnonymousIdentifier :: Identifier -> Bool
+isAnonymousIdentifier AnonymousLocalIdentifier {} = True
+isAnonymousIdentifier _ = False

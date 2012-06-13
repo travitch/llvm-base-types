@@ -9,9 +9,11 @@ module Data.LLVM.Internal.Printers (
 
 import Data.GraphViz
 import Data.Int
-import Data.List ( intercalate )
+import Data.List ( intersperse )
 import Data.Monoid
-import Data.ByteString.Char8 ( ByteString, unpack )
+import Data.Text ( Text, unpack )
+import Data.Text.Lazy ( toStrict )
+import Data.Text.Lazy.Builder
 
 import Data.LLVM.Types.Attributes
 import Data.LLVM.Types.Identifiers
@@ -24,303 +26,320 @@ import Data.LLVM.Types.Referential
 -- * Make the function type printing as flexible as the official
 --   version
 
-showUntypedMDName :: Metadata -> String
-showUntypedMDName = ("!"++) . show . metaValueUniqueId
+showUntypedMDName :: Metadata -> Builder
+showUntypedMDName = fromString . ("!"++) . show . metaValueUniqueId
 
-showMDName :: Metadata -> String
-showMDName = ("metadata !"++) . show . metaValueUniqueId
+showMDName :: Metadata -> Builder
+showMDName = fromString . ("metadata !"++) . show . metaValueUniqueId
 
-showMDString :: ByteString -> String
-showMDString bs = "metadata !" ++ show bs
+showMDString :: Text -> Builder
+showMDString t = mconcat [ fromString "metadata !\""
+                         , fromText t
+                         , singleton '"'
+                         ]
 
-showBool :: Bool -> String
-showBool True = "i1 true"
-showBool False = "i1 false"
+showBool :: Bool -> Builder
+showBool True = fromString "i1 true"
+showBool False = fromString "i1 false"
 
-maybeShowMDName :: Maybe Metadata -> String
-maybeShowMDName Nothing = "null"
+maybeShowMDName :: Maybe Metadata -> Builder
+maybeShowMDName Nothing = fromString "null"
 maybeShowMDName (Just m) = showMDName m
 
-dbgTag :: Int -> String
-dbgTag i = show (i + fromIntegral llvmDebugVersion)
+dbgTag :: Int -> Builder
+dbgTag i = fromShow (i + fromIntegral llvmDebugVersion)
 
-printMetadata :: Metadata -> String
+printMetadata :: Metadata -> Builder
 printMetadata md@MetaSourceLocation { } =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", show (metaSourceRow md)
-          , ", i32 ", show (metaSourceCol md)
-          , ", ", maybeShowMDName (metaSourceScope md)
-          , " null}"
+  mconcat [ showUntypedMDName md, fromString " = metadata !{i32 ", fromShow (metaSourceRow md)
+          , fromString ", i32 ", fromShow (metaSourceCol md)
+          , fromString ", ", maybeShowMDName (metaSourceScope md)
+          , fromString" null}"
           ]
 printMetadata md@MetaDWLexicalBlock { } =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 11
-          , ", i32 ", show (metaLexicalBlockRow md)
-          , ", i32 ", show (metaLexicalBlockCol md)
-          , ", ", maybeShowMDName (metaLexicalBlockContext md)
-          , "}"
+  mconcat [ showUntypedMDName md, fromString " = metadata !{i32 ", dbgTag 11
+          , fromString ", i32 ", fromShow (metaLexicalBlockRow md)
+          , fromString ", i32 ", fromShow (metaLexicalBlockCol md)
+          , fromString ", ", maybeShowMDName (metaLexicalBlockContext md)
+          , fromString "}"
           ]
 printMetadata md@MetaDWCompileUnit {} =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 17
-          , ", i32 ", show (metaCompileUnitLanguage md)
-          , ", ", showMDString (metaCompileUnitSourceFile md)
-          , ", ", showMDString (metaCompileUnitCompileDir md)
-          , ", ", showMDString (metaCompileUnitProducer md)
-          , ", ", showBool (metaCompileUnitIsMain md)
-          , ", ", showBool (metaCompileUnitIsOpt md)
-          , ", i32 ", show (metaCompileUnitVersion md)
-          , "}"
+  mconcat [ showUntypedMDName md, fromString " = metadata !{i32 ", dbgTag 17
+          , fromString ", i32 ", fromShow (metaCompileUnitLanguage md)
+          , fromString ", ", showMDString (metaCompileUnitSourceFile md)
+          , fromString ", ", showMDString (metaCompileUnitCompileDir md)
+          , fromString ", ", showMDString (metaCompileUnitProducer md)
+          , fromString ", ", showBool (metaCompileUnitIsMain md)
+          , fromString ", ", showBool (metaCompileUnitIsOpt md)
+          , fromString ", i32 ", fromShow (metaCompileUnitVersion md)
+          , fromString "}"
           ]
 printMetadata md@MetaDWFile {} =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 41
-          , ", ", showMDString (metaFileSourceFile md)
-          , ", ", showMDString (metaFileSourceDir md)
-          , "}"
+  mconcat [ showUntypedMDName md, fromString " = metadata !{i32 ", dbgTag 41
+          , fromString ", ", showMDString (metaFileSourceFile md)
+          , fromString ", ", showMDString (metaFileSourceDir md)
+          , fromString "}"
           ]
 printMetadata md@MetaDWVariable {} =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 52
-          , ", ", maybeShowMDName (metaGlobalVarContext md)
-          , ", ", showMDString (metaGlobalVarName md)
-          , ", ", showMDString (metaGlobalVarDisplayName md)
-          , ", ", showMDString (metaGlobalVarLinkageName md)
-          , ", i32 ", show (metaGlobalVarLine md)
-          , ", ", maybeShowMDName (metaGlobalVarType md)
-          , ", ", showBool (metaGlobalVarStatic md)
-          , ", ", showBool (metaGlobalVarNotExtern md)
-          , "}"
+  mconcat [ showUntypedMDName md, fromString " = metadata !{i32 ", dbgTag 52
+          , fromString ", ", maybeShowMDName (metaGlobalVarContext md)
+          , fromString ", ", showMDString (metaGlobalVarName md)
+          , fromString ", ", showMDString (metaGlobalVarDisplayName md)
+          , fromString ", ", showMDString (metaGlobalVarLinkageName md)
+          , fromString ", i32 ", fromShow (metaGlobalVarLine md)
+          , fromString ", ", maybeShowMDName (metaGlobalVarType md)
+          , fromString ", ", showBool (metaGlobalVarStatic md)
+          , fromString ", ", showBool (metaGlobalVarNotExtern md)
+          , fromString "}"
           ]
 printMetadata md@MetaDWSubprogram {} =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 46
-          , ", ", maybeShowMDName (metaSubprogramContext md)
-          , ", ", showMDString (metaSubprogramName md)
-          , ", ", showMDString (metaSubprogramDisplayName md)
-          , ", ", showMDString (metaSubprogramLinkageName md)
-          , ", i32 ", show (metaSubprogramLine md)
-          , ", ", maybeShowMDName (metaSubprogramType md)
-          , ", ", showBool (metaSubprogramStatic md)
-          , ", ", showBool (metaSubprogramNotExtern md)
-          , ", i32 ", show (metaSubprogramVirtuality md)
-          , ", i32 ", show (metaSubprogramVirtIndex md)
-          , ", ", maybeShowMDName (metaSubprogramBaseType md)
-          , ", ", showBool (metaSubprogramArtificial md)
-          , ", ", showBool (metaSubprogramOptimized md)
-          , "}"
+  mconcat [ showUntypedMDName md, fromString " = metadata !{i32 ", dbgTag 46
+          , fromString ", ", maybeShowMDName (metaSubprogramContext md)
+          , fromString ", ", showMDString (metaSubprogramName md)
+          , fromString ", ", showMDString (metaSubprogramDisplayName md)
+          , fromString ", ", showMDString (metaSubprogramLinkageName md)
+          , fromString ", i32 ", fromShow (metaSubprogramLine md)
+          , fromString ", ", maybeShowMDName (metaSubprogramType md)
+          , fromString ", ", showBool (metaSubprogramStatic md)
+          , fromString ", ", showBool (metaSubprogramNotExtern md)
+          , fromString ", i32 ", fromShow (metaSubprogramVirtuality md)
+          , fromString ", i32 ", fromShow (metaSubprogramVirtIndex md)
+          , fromString ", ", maybeShowMDName (metaSubprogramBaseType md)
+          , fromString ", ", showBool (metaSubprogramArtificial md)
+          , fromString ", ", showBool (metaSubprogramOptimized md)
+          , fromString "}"
           ]
 printMetadata md@MetaDWBaseType {} =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 36
-          , ", ", maybeShowMDName (metaBaseTypeContext md)
-          , ", ", showMDString (metaBaseTypeName md)
-          , ", ", maybeShowMDName (metaBaseTypeFile md)
-          , ", i32 ", show (metaBaseTypeLine md)
-          , ", i32 ", show (metaBaseTypeSize md)
-          , ", i32 ", show (metaBaseTypeAlign md)
-          , ", i64 ", show (metaBaseTypeOffset md)
-          , ", i32 ", show (metaBaseTypeFlags md)
-          , ", i32 ", show (metaBaseTypeEncoding md)
-          , "}"
+  mconcat [ showUntypedMDName md, fromString " = metadata !{i32 ", dbgTag 36
+          , fromString ", ", maybeShowMDName (metaBaseTypeContext md)
+          , fromString ", ", showMDString (metaBaseTypeName md)
+          , fromString ", ", maybeShowMDName (metaBaseTypeFile md)
+          , fromString ", i32 ", fromShow (metaBaseTypeLine md)
+          , fromString ", i32 ", fromShow (metaBaseTypeSize md)
+          , fromString ", i32 ", fromShow (metaBaseTypeAlign md)
+          , fromString ", i64 ", fromShow (metaBaseTypeOffset md)
+          , fromString ", i32 ", fromShow (metaBaseTypeFlags md)
+          , fromString ", i32 ", fromShow (metaBaseTypeEncoding md)
+          , fromString "}"
           ]
 printMetadata md@MetaDWDerivedType {} =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", show (metaDerivedTypeTag md)
-          , ", ", maybeShowMDName (metaDerivedTypeContext md)
-          , ", ", showMDString (metaDerivedTypeName md)
-          , ", ", maybeShowMDName (metaDerivedTypeFile md)
-          , ", i32 ", show (metaDerivedTypeLine md)
-          , ", i32 ", show (metaDerivedTypeSize md)
-          , ", i32 ", show (metaDerivedTypeAlign md)
-          , ", i64 ", show (metaDerivedTypeOffset md)
-          , ", ", maybeShowMDName (metaDerivedTypeParent md)
-          , "}"
+  mconcat [ showUntypedMDName md, fromString " = metadata !{i32 ", fromShow (metaDerivedTypeTag md)
+          , fromString ", ", maybeShowMDName (metaDerivedTypeContext md)
+          , fromString ", ", showMDString (metaDerivedTypeName md)
+          , fromString ", ", maybeShowMDName (metaDerivedTypeFile md)
+          , fromString ", i32 ", fromShow (metaDerivedTypeLine md)
+          , fromString ", i32 ", fromShow (metaDerivedTypeSize md)
+          , fromString ", i32 ", fromShow (metaDerivedTypeAlign md)
+          , fromString ", i64 ", fromShow (metaDerivedTypeOffset md)
+          , fromString ", ", maybeShowMDName (metaDerivedTypeParent md)
+          , fromString "}"
           ]
 printMetadata md@MetaDWCompositeType {} =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", show (metaCompositeTypeTag md)
-          , ", ", maybeShowMDName (metaCompositeTypeContext md)
-          , ", ", showMDString (metaCompositeTypeName md)
-          , ", ", maybeShowMDName (metaCompositeTypeFile md)
-          , ", i32 ", show (metaCompositeTypeLine md)
-          , ", i32 ", show (metaCompositeTypeSize md)
-          , ", i32 ", show (metaCompositeTypeAlign md)
-          , ", i64 ", show (metaCompositeTypeOffset md)
-          , ", i32 ", show (metaCompositeTypeFlags md)
-          , ", ", maybeShowMDName (metaCompositeTypeParent md)
-          , ", ", maybeShowMDName (metaCompositeTypeMembers md)
-          , ", i32 ", show (metaCompositeTypeRuntime md)
-          , "}"
+  mconcat [ showUntypedMDName md, fromString " = metadata !{i32 ", fromShow (metaCompositeTypeTag md)
+          , fromString ", ", maybeShowMDName (metaCompositeTypeContext md)
+          , fromString ", ", showMDString (metaCompositeTypeName md)
+          , fromString ", ", maybeShowMDName (metaCompositeTypeFile md)
+          , fromString ", i32 ", fromShow (metaCompositeTypeLine md)
+          , fromString ", i32 ", fromShow (metaCompositeTypeSize md)
+          , fromString ", i32 ", fromShow (metaCompositeTypeAlign md)
+          , fromString ", i64 ", fromShow (metaCompositeTypeOffset md)
+          , fromString ", i32 ", fromShow (metaCompositeTypeFlags md)
+          , fromString ", ", maybeShowMDName (metaCompositeTypeParent md)
+          , fromString ", ", maybeShowMDName (metaCompositeTypeMembers md)
+          , fromString ", i32 ", fromShow (metaCompositeTypeRuntime md)
+          , fromString "}"
           ]
 printMetadata md@MetaDWSubrange {} =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 33
-          , ", i32 ", show (metaSubrangeLow md)
-          , ", i32 ", show (metaSubrangeHigh md)
-          , "}"
+  mconcat [ showUntypedMDName md, fromString " = metadata !{i32 ", dbgTag 33
+          , fromString ", i32 ", fromShow (metaSubrangeLow md)
+          , fromString ", i32 ", fromShow (metaSubrangeHigh md)
+          , fromString "}"
           ]
 printMetadata md@MetaDWEnumerator {} =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 40
-          , ", ", showMDString (metaEnumeratorName md)
-          , ", i32 ", show (metaEnumeratorValue md)
-          , "}"
+  mconcat [ showUntypedMDName md, fromString " = metadata !{i32 ", dbgTag 40
+          , fromString ", ", showMDString (metaEnumeratorName md)
+          , fromString ", i32 ", fromShow (metaEnumeratorValue md)
+          , fromString "}"
           ]
 printMetadata md@MetaDWLocal {} =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", show (metaLocalTag md)
-          , ", ", maybeShowMDName (metaLocalContext md)
-          , ", ", showMDString (metaLocalName md)
-          , ", i32 ", show (metaLocalLine md)
-          , ", ", maybeShowMDName (metaLocalType md)
-          , "}"
+  mconcat [ showUntypedMDName md, fromString " = metadata !{i32 ", fromShow (metaLocalTag md)
+          , fromString ", ", maybeShowMDName (metaLocalContext md)
+          , fromString ", ", showMDString (metaLocalName md)
+          , fromString ", i32 ", fromShow (metaLocalLine md)
+          , fromString ", ", maybeShowMDName (metaLocalType md)
+          , fromString "}"
           ]
 printMetadata md@(MetadataList _ vals) =
-  mconcat [ showUntypedMDName md, " = metadata !{"
-          , intercalate ", " (map maybeShowMDName vals)
-          , "}"
+  mconcat [ showUntypedMDName md, fromString " = metadata !{"
+          , mconcat $ intersperse (fromString ", ") (map maybeShowMDName vals)
+          , fromString "}"
           ]
 printMetadata md@MetaDWNamespace {} =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 57
-          , ", ", showMDString (metaNamespaceName md)
-          , ", ", maybeShowMDName (metaNamespaceContext md)
-          , ", i32 ", show (metaNamespaceLine md)
-          , "}"
+  mconcat [ showUntypedMDName md, fromString " = metadata !{i32 ", dbgTag 57
+          , fromString ", ", showMDString (metaNamespaceName md)
+          , fromString ", ", maybeShowMDName (metaNamespaceContext md)
+          , fromString ", i32 ", fromShow (metaNamespaceLine md)
+          , fromString "}"
           ]
 printMetadata md@MetaDWTemplateTypeParameter {} =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 0x2f
-          , ", ", showMDString (metaTemplateTypeParameterName md)
-          , ", i32 ", show (metaTemplateTypeParameterLine md)
-          , ", i32 ", show (metaTemplateTypeParameterCol md)
-          , ", ", maybeShowMDName (metaTemplateTypeParameterContext md)
-          , ", ", maybeShowMDName (metaTemplateTypeParameterType md)
-          , "}"
+  mconcat [ showUntypedMDName md, fromString " = metadata !{i32 ", dbgTag 0x2f
+          , fromString ", ", showMDString (metaTemplateTypeParameterName md)
+          , fromString ", i32 ", fromShow (metaTemplateTypeParameterLine md)
+          , fromString ", i32 ", fromShow (metaTemplateTypeParameterCol md)
+          , fromString ", ", maybeShowMDName (metaTemplateTypeParameterContext md)
+          , fromString ", ", maybeShowMDName (metaTemplateTypeParameterType md)
+          , fromString "}"
           ]
 printMetadata md@MetaDWTemplateValueParameter {} =
-  mconcat [ showUntypedMDName md, " = metadata !{i32 ", dbgTag 0x30
-          , ", ", showMDString (metaTemplateValueParameterName md)
-          , ", i32 ", show (metaTemplateValueParameterLine md)
-          , ", i32 ", show (metaTemplateValueParameterCol md)
-          , ", ", maybeShowMDName (metaTemplateValueParameterContext md)
-          , ", ", maybeShowMDName (metaTemplateValueParameterType md)
-          , ", i64 ", show (metaTemplateValueParameterValue md)
-          , "}"
+  mconcat [ showUntypedMDName md, fromString " = metadata !{i32 ", dbgTag 0x30
+          , fromString ", ", showMDString (metaTemplateValueParameterName md)
+          , fromString ", i32 ", fromShow (metaTemplateValueParameterLine md)
+          , fromString ", i32 ", fromShow (metaTemplateValueParameterCol md)
+          , fromString ", ", maybeShowMDName (metaTemplateValueParameterContext md)
+          , fromString ", ", maybeShowMDName (metaTemplateValueParameterType md)
+          , fromString ", i64 ", fromShow (metaTemplateValueParameterValue md)
+          , fromString "}"
           ]
 printMetadata md@(MetadataUnknown _ s) =
-  mconcat [ showUntypedMDName md, " = metadata ", unpack s ]
+  mconcat [ showUntypedMDName md, fromString " = metadata ", fromText s ]
 
 -- Take all of the asm chunks, break their contents into lines,
 -- then wrap each of those lines in the 'module asm' wrapper.
 -- Combine them into a single string with newlines.
-printAsm :: Assembly -> String
+printAsm :: Assembly -> Builder
 printAsm asm = mconcat asmLines
   where
     asmLines = map adorn (lines (show asm))
-    adorn s = "module asm \"" ++ s ++ "\"\n"
+    adorn s = mconcat [fromString "module asm \"", fromString s, fromString "\"\n"]
 
 -- When referencing a non-constant value during printing, just use
 -- this instead of printValue to avoid problems printing cyclic data.
 -- If the value doesn't have a name, just print it (it should be a
 -- constant).
-printConstOrName :: Value -> String
-printConstOrName v = case valueName v of
-  Nothing -> mconcat [ printType (valueType v), " ", printValue v ]
-  Just ident -> mconcat [ printType (valueType v), " ", show ident ]
+printConstOrName :: Value -> Builder
+printConstOrName v =
+  case valueName v of
+    Nothing -> mconcat [ printType (valueType v), singleton ' ', printValue v ]
+    Just ident -> mconcat [ printType (valueType v), singleton ' ', fromShow ident ]
 
-printConstOrNameNoType :: Value -> String
-printConstOrNameNoType v = case valueName v of
-  Nothing -> printValue v
-  Just ident -> show ident
+printConstOrNameNoType :: Value -> Builder
+printConstOrNameNoType v =
+  case valueName v of
+    Nothing -> printValue v
+    Just ident -> fromShow ident
 
-compose :: [String] -> String
-compose = unwords . filter (not . null)
+compose :: [Builder] -> Builder
+compose = mconcat . intersperse (singleton ' ') . filter (/= mempty)
 
-quote :: String -> String
-quote s = mconcat [ "\"", s, "\"" ]
+quote :: Builder -> Builder
+quote s = mconcat [ singleton '\\', s, singleton '\\' ]
 
-isInteger :: String -> Bool
-isInteger s = case reads s :: [(Integer, String)] of
-  [(_, "")] -> True
-  _ -> False
-
-printValue :: Value -> String
+printValue :: Value -> Builder
 printValue v = case valueContent v of
   FunctionC f ->
     let retAttrS = unwords $ map show (functionRetAttrs f)
-        argS = intercalate ", " $ map (printValue . Value) (functionParameters f)
-        fAttrS = unwords $ map show (functionAttrs f)
-        bodyS = unlines $ map (printValue . Value) (functionBody f)
+        argS = commaSep $ map (printValue . Value) (functionParameters f)
+        fAttrS = spaceSep $ map fromShow (functionAttrs f)
+        bodyS = lineSep $ map (printValue . Value) (functionBody f)
         vaTag = if functionIsVararg f then ", ..." else ""
         (TypeFunction rtype _ _) = functionType f
         name = functionName f
-    in compose [ "define", show (functionLinkage f), show (functionVisibility f)
-               , show (functionCC f), retAttrS, printType rtype, show name, "("
-               , argS, vaTag, ")", fAttrS, maybe "" unpack (functionSection f)
-               , printAlignment (functionAlign f), maybe "" show (functionGCName f)
-               , "{\n", bodyS, "}"
+    in compose [ fromString "define", fromShow (functionLinkage f)
+               , fromShow (functionVisibility f), fromShow (functionCC f)
+               , fromString retAttrS, printType rtype, fromShow name, singleton '('
+               , argS, fromString vaTag, singleton ')', fAttrS
+               , maybe mempty fromText (functionSection f)
+               , printAlignment (functionAlign f)
+               , maybe mempty fromShow (functionGCName f)
+               , fromString "{\n", bodyS, singleton '}'
                ]
   ArgumentC a ->
     compose [ printType (argumentType a)
-            , unwords $ map show (argumentParamAttrs a)
-            , show (argumentName a)
+            , compose $ map fromShow (argumentParamAttrs a)
+            , fromShow (argumentName a)
             ]
   BasicBlockC b ->
-    let indent = ("  "++)
+    let indent = (fromString "  " `mappend`)
         dbgS = map (printDebugTag . valueMetadata) (basicBlockInstructions b)
         instS = map (printValue . Value) (basicBlockInstructions b)
-        instS' = zipWith (++) instS dbgS
-        instS'' = unlines $ map indent instS'
-        identS = identifierAsString (basicBlockName b)
-        label = case isInteger identS of
-          True -> "; <label>:" ++ identS
-          False -> identS ++ ":"
-    in mconcat [ label, "\n", instS'' ]
+        instS' = zipWith mappend instS dbgS
+        instS'' = mconcat $ intersperse (singleton '\n') $ map indent instS'
+        identS = fromText $ identifierContent (basicBlockName b)
+        label = case isAnonymousIdentifier (basicBlockName b) of
+          True -> fromString "; <label>:" `mappend` identS
+          False -> identS `mappend` singleton ':'
+    in mconcat [ label, singleton '\n', instS'' ]
   GlobalVariableC g ->
     let TypePointer _ addrSpace = globalVariableType g
         addrSpaceS = case addrSpace of
-          0 -> ""
-          _ -> mconcat [ "addrspace(", show addrSpace, ")" ]
-        annotsS = if globalVariableIsConstant g then "constant" else ""
-        initS = maybe "" printConstOrName (globalVariableInitializer g)
-        sectionS = maybe "" ((", section"++) . quote . unpack) (globalVariableSection g)
-    in compose [ show (globalVariableName g), "=", addrSpaceS
-               , show (globalVariableLinkage g), show (globalVariableVisibility g)
+          0 -> mempty
+          _ -> mconcat [ fromString "addrspace(", fromShow addrSpace, singleton ')' ]
+        annotsS = if globalVariableIsConstant g then fromString "constant" else mempty
+        initS = maybe mempty printConstOrName (globalVariableInitializer g)
+        sectionS = maybe mempty ((fromString ", section" `mappend`) . quote . fromText) (globalVariableSection g)
+    in compose [ fromShow (globalVariableName g), singleton '=', addrSpaceS
+               , fromShow (globalVariableLinkage g), fromShow (globalVariableVisibility g)
                , annotsS, initS, sectionS, printAlignment (globalVariableAlignment g)
                ]
   GlobalAliasC a ->
-    compose [ show (globalAliasName a), "= alias", show (globalAliasLinkage a)
-            , show (globalAliasVisibility a), printConstOrName (globalAliasTarget a)
+    compose [ fromShow (globalAliasName a)
+            , fromString "= alias"
+            , fromShow (globalAliasLinkage a)
+            , fromShow (globalAliasVisibility a)
+            , printConstOrName (globalAliasTarget a)
             ]
   ExternalValueC e ->
-    compose [ "declare", printType (valueType e), show (externalValueName e) ]
+    compose [ fromString "declare"
+            , printType (valueType e)
+            , fromShow (externalValueName e)
+            ]
   ExternalFunctionC e ->
     let TypeFunction rtype argTypes isva = externalFunctionType e
-    in compose [ "declare", printType rtype, show (externalFunctionName e)
-               , "(", intercalate ", " $ map printType argTypes
-               , if isva then ", ..." else "", ")"
+    in compose [ fromString "declare", printType rtype
+               , fromShow (externalFunctionName e)
+               , singleton '(', commaSep $ map printType argTypes
+               , fromString $ if isva then ", ..." else ""
+               , singleton ')'
                ]
   InstructionC i ->
     case i of
-      RetInst { retInstValue = Just rv } -> compose [ "ret", printConstOrName rv ]
-      RetInst { } -> "ret void"
+      RetInst { retInstValue = Just rv } ->
+        compose [ fromString "ret", printConstOrName rv ]
+      RetInst { } -> fromString "ret void"
       ResumeInst { resumeException = val } ->
-        compose [ "resume", printConstOrName val ]
+        compose [ fromString "resume", printConstOrName val ]
       UnconditionalBranchInst { unconditionalBranchTarget = dest } ->
-        compose [ "br", (printConstOrName . Value) dest ]
+        compose [ fromString "br", (printConstOrName . Value) dest ]
       BranchInst { branchCondition = cond
                  , branchTrueTarget = tTarget
                  , branchFalseTarget = fTarget
                  } ->
-        compose [ "br", printConstOrName cond
-                , ",", printConstOrName (Value tTarget)
-                , ",", printConstOrName (Value fTarget)
+        compose [ fromString "br", printConstOrName cond
+                , singleton ',', printConstOrName (Value tTarget)
+                , singleton ',', printConstOrName (Value fTarget)
                 ]
       SwitchInst { switchValue = val
                  , switchDefaultTarget = defTarget
                  , switchCases = cases
                  } ->
-        let caseDests = unwords $ map printPair cases
+        let caseDests = mconcat $ intersperse (singleton ' ') $ map printPair cases
             printPair (caseVal, caseDest) =
-              mconcat [ printConstOrName caseVal, ", ", printConstOrName (Value caseDest) ]
-        in compose [ "switch", printConstOrName val, ",", printConstOrName (Value defTarget)
-                   , "[", caseDests, "]"
+              mconcat [ printConstOrName caseVal
+                      , fromString ", "
+                      , printConstOrName (Value caseDest)
+                      ]
+        in compose [ fromString "switch", printConstOrName val
+                   , singleton ',', printConstOrName (Value defTarget)
+                   , singleton '[', caseDests, singleton ']'
                    ]
       IndirectBranchInst { indirectBranchAddress = addr
                          , indirectBranchTargets = targets
                          } ->
-        compose [ "indirectbr", printConstOrName addr
-                , "[", intercalate ", " $ map (printConstOrName . Value) targets, "]"
+        compose [ fromString "indirectbr", printConstOrName addr
+                , singleton '[', commaSep $ map (printConstOrName . Value) targets
+                , singleton ']'
                 ]
-      UnreachableInst { } -> "unreachable"
+      UnreachableInst { } -> fromString "unreachable"
       AddInst { } -> printFlaggedBinaryOp "add" i
       SubInst { } -> printFlaggedBinaryOp "sub" i
       MulInst { } -> printFlaggedBinaryOp "mul" i
@@ -336,8 +355,8 @@ printValue v = case valueContent v of
                          , extractElementIndex = idx
                          } ->
         compose [ printInstNamePrefix i
-                , "extractelement"
-                , printConstOrName vec, ","
+                , fromString "extractelement"
+                , printConstOrName vec, singleton ','
                 , printConstOrName idx
                 ]
       InsertElementInst { insertElementVector = vec
@@ -345,9 +364,9 @@ printValue v = case valueContent v of
                         , insertElementIndex = idx
                         } ->
         compose [ printInstNamePrefix i
-                , "insertelement"
-                , printConstOrName vec, ","
-                , printConstOrName val, ","
+                , fromString "insertelement"
+                , printConstOrName vec, singleton ','
+                , printConstOrName val, singleton ','
                 , printConstOrName idx
                 ]
       ShuffleVectorInst { shuffleVectorV1 = v1
@@ -355,38 +374,38 @@ printValue v = case valueContent v of
                         , shuffleVectorMask = mask
                         } ->
         compose [ printInstNamePrefix i
-                , "shufflevector"
-                , printConstOrName v1, ","
-                , printConstOrName v2, ","
+                , fromString "shufflevector"
+                , printConstOrName v1, singleton ','
+                , printConstOrName v2, singleton ','
                 , printConstOrName mask
                 ]
       ExtractValueInst { extractValueAggregate = agg
                        , extractValueIndices = indices
                        } ->
         compose [ printInstNamePrefix i
-                , "extractvalue"
+                , fromString "extractvalue"
                 , printConstOrName agg
-                , intercalate ", " $ map show indices
+                , commaSep $ map fromShow indices
                 ]
       InsertValueInst { insertValueAggregate = agg
                       , insertValueValue = val
                       , insertValueIndices = indices
                       } ->
         compose [ printInstNamePrefix i
-                , "insertvalue"
-                , printConstOrName agg, ","
-                , printConstOrName val, ","
-                , intercalate ", " $ map show indices
+                , fromString "insertvalue"
+                , printConstOrName agg, singleton ','
+                , printConstOrName val, singleton ','
+                , commaSep $ map fromShow indices
                 ]
       AllocaInst { allocaNumElements = elems
                  , allocaAlign = align
                  } ->
         let count = case valueContent elems of
-              ConstantC ConstantInt { constantIntValue = 1 } -> ""
-              _ -> ", " ++ printConstOrName elems
+              ConstantC ConstantInt { constantIntValue = 1 } -> mempty
+              _ -> fromString ", " `mappend` printConstOrName elems
             TypePointer ty _ = instructionType i
         in   compose [ printInstNamePrefix i
-                     , "alloca"
+                     , fromString "alloca"
                      , printType ty
                      , count
                      , printAlignment align
@@ -397,7 +416,7 @@ printValue v = case valueContent v of
                } ->
         compose [ printInstNamePrefix i
                 , printVolatileFlag volatile
-                , "load"
+                , fromString "load"
                 , printConstOrName src
                 , printAlignment align
                 ]
@@ -407,13 +426,13 @@ printValue v = case valueContent v of
                 , storeAlignment = align
                 } ->
         compose [ printVolatileFlag volatile
-                , "store"
-                , printConstOrName val, ","
+                , fromString "store"
+                , printConstOrName val, singleton ','
                 , printConstOrName dest
                 , printAlignment align
                 ]
       FenceInst { fenceOrdering = o, fenceScope = s } ->
-        compose [ "fence", show s, show o ]
+        compose [ fromString "fence", fromShow s, fromShow o ]
       AtomicCmpXchgInst { atomicCmpXchgOrdering = o
                         , atomicCmpXchgScope = s
                         , atomicCmpXchgIsVolatile = isVol
@@ -422,11 +441,11 @@ printValue v = case valueContent v of
                         , atomicCmpXchgComparison = cmp
                         , atomicCmpXchgNewValue = newV
                         } ->
-        compose [ "cmpxchg", printVolatileFlag isVol
-                , printConstOrName ptr, ","
-                , printConstOrName cmp, ","
+        compose [ fromString "cmpxchg", printVolatileFlag isVol
+                , printConstOrName ptr, singleton ','
+                , printConstOrName cmp, singleton ','
                 , printConstOrName newV
-                , show s, show o
+                , fromShow s, fromShow o
                 ]
       AtomicRMWInst { atomicRMWOrdering = o
                     , atomicRMWScope = s
@@ -436,12 +455,12 @@ printValue v = case valueContent v of
                     , atomicRMWValue = val
                     , atomicRMWAddressSpace = _ -- ?
                     } ->
-        compose [ "atomicrmw", printVolatileFlag isVol
-                , show op
-                , printConstOrName p, ","
+        compose [ fromString "atomicrmw", printVolatileFlag isVol
+                , fromShow op
+                , printConstOrName p, singleton ','
                 , printConstOrName val
-                , show s
-                , show o
+                , fromShow s
+                , fromShow o
                 ]
       TruncInst { } -> printTypecast "trunc" i
       ZExtInst { } -> printTypecast "zext" i
@@ -460,9 +479,9 @@ printValue v = case valueContent v of
                , cmpV2 = v2
                } ->
         compose [ printInstNamePrefix i
-                , "icmp"
-                , show cond
-                , printConstOrName v1, ","
+                , fromString "icmp"
+                , fromShow cond
+                , printConstOrName v1, singleton ','
                 , printConstOrNameNoType v2
                 ]
       FCmpInst { cmpPredicate = cond
@@ -470,31 +489,32 @@ printValue v = case valueContent v of
                , cmpV2 = v2
                } ->
         compose [ printInstNamePrefix i
-                , "fcmp"
-                , show cond
-                , printConstOrName v1, ","
+                , fromString "fcmp"
+                , fromShow cond
+                , printConstOrName v1, singleton ','
                 , printConstOrNameNoType v2
                 ]
       PhiNode { phiIncomingValues = vals
               } ->
         let printPair (val, lab) =
-              mconcat [ "[", printConstOrNameNoType val
-                      , ", ", printConstOrNameNoType lab, "]"
+              mconcat [ singleton '[', printConstOrNameNoType val
+                      , fromString ", ", printConstOrNameNoType lab
+                      , singleton ']'
                       ]
-            valS = intercalate ", " $ map printPair vals
+            valS = mconcat $ intersperse (fromString ", ") $ map printPair vals
         in compose [ printInstNamePrefix i
-                   , "phi"
+                   , fromString "phi"
                    , printType (instructionType i)
-                   , "[", valS, "]"
+                   , singleton '[', valS, singleton ']'
                    ]
       SelectInst { selectCondition = cond
                  , selectTrueValue = v1
                  , selectFalseValue = v2
                  } ->
         compose [ printInstNamePrefix i
-                , "select"
-                , printConstOrName cond, ","
-                , printConstOrName v1, ","
+                , fromString "select"
+                , printConstOrName cond, singleton ','
+                , printConstOrName v1, singleton ','
                 , printConstOrName v2
                 ]
       GetElementPtrInst { getElementPtrInBounds = inBounds
@@ -502,10 +522,10 @@ printValue v = case valueContent v of
                         , getElementPtrIndices = indices
                         } ->
         compose [ printInstNamePrefix i
-                , "getelementptr"
+                , fromString "getelementptr"
                 , printInBounds inBounds
-                , printConstOrName val, ","
-                , intercalate ", " $ map printConstOrName indices
+                , printConstOrName val, singleton ','
+                , mconcat $ intersperse (fromString ", ") $ map printConstOrName indices
                 ]
       CallInst { callIsTail = isTail
                , callConvention = cc
@@ -522,13 +542,15 @@ printValue v = case valueContent v of
               -- _ -> error ("Unknown function return type: " ++ show (valueType f))
         in compose [ printInstNamePrefix i
                    , printTailTag isTail
-                   , "call"
-                   , show cc
-                   , unwords $ map show pattrs
+                   , fromString "call"
+                   , fromShow cc
+                   , mconcat $ intersperse (singleton ' ') $ map fromShow pattrs
                    , printType rtype
                    , printConstOrNameNoType f
-                   , "(", intercalate ", " $ map printArgument args, ")"
-                   , unwords $ map show cattrs
+                   , singleton '('
+                   , mconcat $ intersperse (fromString ", ") $ map printArgument args
+                   , singleton ')'
+                   , mconcat $ intersperse (singleton ' ') $ map fromShow cattrs
                    ]
       InvokeInst { invokeConvention = cc
                  , invokeParamAttrs = pattrs
@@ -540,19 +562,21 @@ printValue v = case valueContent v of
                  , invokeHasSRet = _
                  } ->
         compose [ printInstNamePrefix i
-                , "invoke"
-                , show cc
-                , unwords $ map show pattrs
+                , fromString "invoke"
+                , fromShow cc
+                , spaceSep $ map fromShow pattrs
                 , printConstOrName f
-                , "(", intercalate ", " $ map printArgument args, ")"
-                , unwords $ map show atts
-                , "to", printConstOrName (Value nlabel)
-                , "unwind", printConstOrName (Value ulabel)
+                , singleton '('
+                , commaSep $ map printArgument args
+                , singleton ')'
+                , spaceSep $ map fromShow atts
+                , fromString "to", printConstOrName (Value nlabel)
+                , fromString "unwind", printConstOrName (Value ulabel)
                 ]
       VaArgInst { vaArgValue = va } ->
         compose [ printInstNamePrefix i
-                , "va_arg"
-                , printConstOrName va, ","
+                , fromString "va_arg"
+                , printConstOrName va, singleton ','
                 , printType (instructionType i)
                 ]
       -- FIXME: This might not be correct in printing the filter
@@ -562,59 +586,75 @@ printValue v = case valueContent v of
                      , landingPadClauses = cs
                      } ->
         compose [ printInstNamePrefix i
-                , "landingpad"
+                , fromString "landingpad"
                 , printType (instructionType i)
-                , "personality"
+                , fromString "personality"
                 , printConstOrName p
-                , if isClean then "cleanup" else ""
-                , intercalate " " $ map printClause cs
+                , if isClean then fromString "cleanup" else mempty
+                , spaceSep $ map printClause cs
                 ]
   ConstantC c -> printConstant c
 
-printClause :: (Value, LandingPadClause) -> String
-printClause (v, p) = case p of
-  LPCatch -> compose [ "catch", printConstOrName v ]
-  LPFilter -> compose [ "filter", printConstOrName v ]
+printClause :: (Value, LandingPadClause) -> Builder
+printClause (v, p) =
+  case p of
+    LPCatch -> compose [ fromString "catch", printConstOrName v ]
+    LPFilter -> compose [ fromString "filter", printConstOrName v ]
 
-printConstant :: Constant -> String
+commaSep :: [Builder] -> Builder
+commaSep = mconcat . intersperse (fromString ", ")
+
+spaceSep :: [Builder] -> Builder
+spaceSep = mconcat . intersperse (singleton ' ')
+
+lineSep :: [Builder] -> Builder
+lineSep = mconcat . intersperse (singleton '\n')
+
+printConstant :: Constant -> Builder
 printConstant c = case c of
-  UndefValue { } -> "undef"
-  ConstantAggregateZero { } -> "zeroinitializer"
-  ConstantPointerNull { } -> "null"
+  UndefValue { } -> fromString "undef"
+  ConstantAggregateZero { } -> fromString "zeroinitializer"
+  ConstantPointerNull { } -> fromString "null"
   BlockAddress { blockAddressFunction = f
                , blockAddressBlock = b
                } ->
-    mconcat [ "blockaddress("
-            , printConstOrNameNoType (Value f), ", "
-            , printConstOrNameNoType (Value b), ")"
+    mconcat [ fromString "blockaddress("
+            , printConstOrNameNoType (Value f)
+            , fromString ", "
+            , printConstOrNameNoType (Value b)
+            , singleton ')'
             ]
   ConstantArray { constantArrayValues = vs } ->
-    mconcat [ "[", intercalate ", " $ map printConstOrName vs, "]" ]
-  ConstantFP { constantFPValue = d } -> show d
-  ConstantInt { constantIntValue = i } -> show i
-  ConstantString { constantStringValue = s } -> mconcat [ "c\"", unpack s, "\"" ]
+    mconcat [ singleton '['
+            , commaSep $ map printConstOrName vs, singleton ']'
+            ]
+  ConstantFP { constantFPValue = d } -> fromShow d
+  ConstantInt { constantIntValue = i } -> fromShow i
+  ConstantString { constantStringValue = s } ->
+    mconcat [ fromString "c\"", fromText s, singleton '"' ]
   ConstantStruct { constantStructValues = vs } ->
-    mconcat [ "{", intercalate ", " $ map printConstOrName vs, "}" ]
+    mconcat [ singleton '{', commaSep $ map printConstOrName vs, singleton '}' ]
   ConstantVector { constantVectorValues = vs } ->
-    mconcat [ "<", intercalate ", " $ map printConstOrName vs, ">" ]
+    mconcat [ singleton '<', commaSep $ map printConstOrName vs, singleton '>' ]
   ConstantValue { constantInstruction = i } ->
-    mconcat [ printType (constantType c), " ", printConstInst i ]
+    mconcat [ printType (constantType c), singleton ' ', printConstInst i ]
   InlineAsm { inlineAsmString = asm
             , inlineAsmConstraints = constraints
             } ->
-    mconcat [ "asm \"", unpack asm, "\", \"", unpack constraints, "\"" ]
+    mconcat [ fromString "asm \"", fromText asm
+            , fromString "\", \"", fromText constraints, singleton '"' ]
 
-printArgument :: (Value, [ParamAttribute]) -> String
+printArgument :: (Value, [ParamAttribute]) -> Builder
 printArgument (v, atts) =
   compose [ printType $ valueType v
-          , unwords $ map show atts
+          , spaceSep $ map fromShow atts
           , printConstOrNameNoType v
           ]
 
 instance Show Argument where
-  show a = printArgument (Value a, [])
+  show a = builderToString $ printArgument (Value a, [])
 
-printConstInst :: Instruction -> String
+printConstInst :: Instruction -> Builder
 printConstInst valT = case valT of
   TruncInst { } -> printTypecastConst "trunc" valT
   ZExtInst { } -> printTypecastConst "zext" valT
@@ -632,78 +672,78 @@ printConstInst valT = case valT of
                     , getElementPtrValue = val
                     , getElementPtrIndices = indices
                     } ->
-    compose [ "getelementptr"
+    compose [ fromString "getelementptr"
             , printInBounds inBounds
-            , "("
-            , printConstOrName val, ", "
-            , intercalate ", " $ map printConstOrName indices
-            , ")"
+            , singleton '('
+            , printConstOrName val, fromString ", "
+            , commaSep $ map printConstOrName indices
+            , singleton ')'
             ]
   SelectInst { selectCondition = cond
              , selectTrueValue = v1
              , selectFalseValue = v2
              } ->
-    mconcat [ "select ("
-            , printConstOrName cond, ", "
-            , printConstOrName v1, ", "
-            , printConstOrName v2, ")"
+    mconcat [ fromString "select ("
+            , printConstOrName cond, fromString ", "
+            , printConstOrName v1, fromString ", "
+            , printConstOrName v2, singleton ')'
             ]
   ICmpInst { cmpPredicate = cond
            , cmpV1 = v1
            , cmpV2 = v2
            } ->
-    mconcat [ "icmp ", show cond, " ("
-            , printConstOrName v1, ", "
-            , printConstOrName v2, ")"
+    mconcat [ fromString "icmp ", fromShow cond, fromString " ("
+            , printConstOrName v1, fromString ", "
+            , printConstOrName v2, singleton ')'
             ]
   FCmpInst { cmpPredicate = cond
            , cmpV1 = v1
            , cmpV2 = v2
            } ->
-    mconcat [ "fcmp ", show cond, " ("
-            , printConstOrName v1, ", "
-            , printConstOrName v2, ")"
+    mconcat [ fromString "fcmp ", fromShow cond, fromString " ("
+            , printConstOrName v1, fromString ", "
+            , printConstOrName v2, singleton ')'
             ]
   ExtractElementInst { extractElementVector = v
                      , extractElementIndex = idx
                      } ->
-    mconcat [ "extractelement ("
-            , printConstOrName v, ", "
-            , printConstOrName idx, ")"
+    mconcat [ fromString "extractelement ("
+            , printConstOrName v, fromString ", "
+            , printConstOrName idx, singleton ')'
             ]
   InsertElementInst { insertElementVector = vec
                     , insertElementValue = val
                     , insertElementIndex = idx
                     } ->
-    mconcat [ "insertelement ("
-            , printConstOrName vec, ", "
-            , printConstOrName val, ", "
-            , printConstOrName idx, ")"
+    mconcat [ fromString "insertelement ("
+            , printConstOrName vec, fromString ", "
+            , printConstOrName val, fromString ", "
+            , printConstOrName idx, singleton ')'
             ]
   ShuffleVectorInst { shuffleVectorV1 = v1
                     , shuffleVectorV2 = v2
                     , shuffleVectorMask = mask
                     } ->
-    mconcat [ "shufflevector ("
-            , printConstOrName v1, ", "
-            , printConstOrName v2, ", "
-            , printConstOrName mask, ")"
+    mconcat [ fromString "shufflevector ("
+            , printConstOrName v1, fromString ", "
+            , printConstOrName v2, fromString ", "
+            , printConstOrName mask, singleton ')'
             ]
   ExtractValueInst { extractValueAggregate = agg
                    , extractValueIndices = indices
                    } ->
-    mconcat [ "extractvalue ("
-            , printConstOrName agg, ", "
-            , intercalate ", " $ map show indices, ")"
+    mconcat [ fromString "extractvalue ("
+            , printConstOrName agg, fromString ", "
+            , commaSep $ map fromShow indices, singleton ')'
             ]
   InsertValueInst { insertValueAggregate = agg
                   , insertValueValue = val
                   , insertValueIndices = indices
                   } ->
-    mconcat [ "insertvalue ("
-            , printConstOrName agg, ", "
-            , printConstOrName val, ", "
-            , intercalate ", " $ map show indices, ")"
+    mconcat [ fromString "insertvalue ("
+            , printConstOrName agg, fromString ", "
+            , printConstOrName val, fromString ", "
+            , commaSep $ map fromShow indices, singleton ')'
             ]
   AddInst { } -> printBinaryConst "add" valT
   SubInst { } -> printBinaryConst "sub" valT
@@ -718,115 +758,130 @@ printConstInst valT = case valT of
   XorInst { } -> printBinaryConst "xor" valT
   _ -> error "Non-constant ValueT"
 
-printBinaryConst :: String -> Instruction -> String
+printBinaryConst :: String -> Instruction -> Builder
 printBinaryConst name inst =
-  mconcat [ name, " (", printConstOrName (binaryLhs inst), ", "
-          , printConstOrName (binaryRhs inst), ")"
+  mconcat [ fromString name, fromString " ("
+          , printConstOrName (binaryLhs inst), fromString ", "
+          , printConstOrName (binaryRhs inst), singleton ')'
           ]
 
-printTypecastConst :: String -> Instruction -> String
+printTypecastConst :: String -> Instruction -> Builder
 printTypecastConst n inst =
-  mconcat [ n, " (", printConstOrName (castedValue inst)
-          , " to ", printType (instructionType inst), ")"
+  mconcat [ fromString n, fromString " (", printConstOrName (castedValue inst)
+          , fromString " to ", printType (instructionType inst), singleton ')'
           ]
 
-printTailTag :: Bool -> String
-printTailTag isTail = if isTail then "tail" else ""
+printTailTag :: Bool -> Builder
+printTailTag isTail = if isTail then fromString "tail" else mempty
 
-printVolatileFlag :: Bool -> String
-printVolatileFlag f = if f then "volatile" else ""
+printVolatileFlag :: Bool -> Builder
+printVolatileFlag f = if f then fromString "volatile" else mempty
 
-printAlignment :: Int64 -> String
-printAlignment align = case align of
-  0 -> ""
-  _ -> ", align " ++ show align
+printAlignment :: Int64 -> Builder
+printAlignment align =
+  case align of
+    0 -> mempty
+    _ -> fromString ", align " `mappend` fromShow align
 
-printTypecast :: String -> Instruction -> String
+printTypecast :: String -> Instruction -> Builder
 printTypecast str inst =
   compose [ printInstNamePrefix inst
-          , str
+          , fromString str
           , printConstOrName (castedValue inst)
-          , "to"
-          , printType (valueType inst) -- newType
+          , fromString "to"
+          , printType (valueType inst)
           ]
 
-printInBounds :: Bool -> String
-printInBounds inBounds = if inBounds then "inbounds" else ""
+printInBounds :: Bool -> Builder
+printInBounds inBounds = if inBounds then fromString "inbounds" else mempty
 
-printFlaggedBinaryOp :: String -> Instruction -> String
+printFlaggedBinaryOp :: String -> Instruction -> Builder
 printFlaggedBinaryOp str inst =
   compose [ printInstNamePrefix inst
-          , str
-          , show (binaryArithFlags inst)
+          , fromString str
+          , fromShow (binaryArithFlags inst)
           , printType (instructionType inst)
-          , printConstOrNameNoType (binaryLhs inst), ","
+          , printConstOrNameNoType (binaryLhs inst), singleton ','
           , printConstOrNameNoType (binaryRhs inst)
           ]
 
-printBinaryOp :: String -> Instruction -> String
+printBinaryOp :: String -> Instruction -> Builder
 printBinaryOp str inst =
   compose [ printInstNamePrefix inst
-          , str
+          , fromString str
           , printType (instructionType inst)
-          , printConstOrNameNoType (binaryLhs inst), ","
+          , printConstOrNameNoType (binaryLhs inst), singleton ','
           , printConstOrNameNoType (binaryRhs inst)
           ]
 
-printInstNamePrefix :: Instruction -> String
-printInstNamePrefix i = case instructionName i of
-  Nothing -> ""
-  Just n -> mconcat [ show n, " =" ]
+printInstNamePrefix :: Instruction -> Builder
+printInstNamePrefix i =
+  case instructionName i of
+    Nothing -> mempty
+    Just n -> mconcat [ fromShow n, fromString " =" ]
 
 -- | This is kind of gross - it only prints out the first piece of
 -- metadata.
-printDebugTag :: [Metadata] -> String
-printDebugTag [] = ""
-printDebugTag (md:_) = ", !dbg !" ++ show (metaValueUniqueId md)
+printDebugTag :: [Metadata] -> Builder
+printDebugTag [] = mempty
+printDebugTag (md:_) =
+  fromString ", !dbg !" `mappend` fromShow (metaValueUniqueId md)
 
-printType :: Type -> String
-printType (TypeInteger bits) = 'i' : show bits
-printType TypeFloat = "float"
-printType TypeDouble = "double"
-printType TypeFP128 = "fp128"
-printType TypeX86FP80 = "x86_fp80"
-printType TypePPCFP128 = "ppc_fp128"
-printType TypeX86MMX = "x86mmx"
-printType TypeVoid = "void"
-printType TypeLabel = "label"
-printType TypeMetadata = "metadata"
-printType (TypeArray n ty) = mconcat [ "[", show n, " x ", printType ty, "]" ]
-printType (TypeVector n ty) = mconcat [ "<", show n, " x ", printType ty, ">" ]
+printType :: Type -> Builder
+printType (TypeInteger bits) = singleton 'i' `mappend` fromShow bits
+printType TypeFloat = fromString "float"
+printType TypeDouble = fromString "double"
+printType TypeFP128 = fromString "fp128"
+printType TypeX86FP80 = fromString "x86_fp80"
+printType TypePPCFP128 = fromString "ppc_fp128"
+printType TypeX86MMX = fromString "x86mmx"
+printType TypeVoid = fromString "void"
+printType TypeLabel = fromString "label"
+printType TypeMetadata = fromString "metadata"
+printType (TypeArray n ty) =
+  mconcat [ singleton '[', fromShow n, fromString " x "
+          , printType ty, singleton ']'
+          ]
+printType (TypeVector n ty) =
+  mconcat [ singleton '<', fromShow n, fromString " x "
+          , printType ty, singleton '>'
+          ]
 printType (TypeFunction retT argTs isVa) =
-  mconcat [ printType retT, "(", argVals, vaTag, ")" ]
-  where argVals :: String
-        argVals = intercalate ", " $ map printType argTs
-        vaTag :: String
-        vaTag = if isVa then ", ..." else ""
-printType (TypePointer ty _) = mconcat [ printType ty, "*" ]
+  mconcat [ printType retT, singleton '(', argVals, vaTag, singleton ')' ]
+  where
+    argVals = commaSep $ map printType argTs
+    vaTag = if isVa then fromString ", ..." else mempty
+printType (TypePointer ty _) = mconcat [ printType ty, singleton '*' ]
 printType (TypeStruct Nothing ts p) =
   case p of
-    True -> mconcat [ "<", fieldVals, ">" ]
-    False -> mconcat [ "{", fieldVals, "}" ]
-  where fieldVals = intercalate ", " $ map printType ts
-printType (TypeStruct (Just n) _ _) = '%' : n
+    True -> mconcat [ singleton '<', fieldVals, singleton '>' ]
+    False -> mconcat [ singleton '{', fieldVals, singleton '}' ]
+  where fieldVals = commaSep $ map printType ts
+printType (TypeStruct (Just n) _ _) = singleton '%' `mappend` fromString n
 
 instance Show Metadata where
-  show = printMetadata
+  show = builderToString . printMetadata
 
 instance Show Type where
-  show = printType
+  show = builderToString . printType
 
 instance Show Value where
-  show = printValue
+  show = builderToString . printValue
 
 instance Labellable Value where
   toLabelValue = toLabelValue . show
 
 instance Show Instruction where
-  show = printValue . Value
+  show = builderToString . printValue . Value
 
 instance Show Function where
-  show = printValue . Value
+  show = builderToString . printValue . Value
 
 instance Show GlobalVariable where
-  show = printValue . Value
+  show = builderToString . printValue . Value
+
+builderToString :: Builder -> String
+builderToString = unpack . toStrict . toLazyText
+
+fromShow :: (Show a) => a -> Builder
+fromShow = fromString . show
