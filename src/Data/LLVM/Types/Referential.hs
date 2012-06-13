@@ -41,6 +41,7 @@ module Data.LLVM.Types.Referential (
   valueContent',
   stripBitcasts,
   structTypeToName,
+  structBaseName,
   stripPointerTypes,
   -- * Debug info
   llvmDebugVersion
@@ -111,19 +112,20 @@ data Type = TypeInteger !Int
 -- to a struct type name.  If the type is not a struct type, return
 -- Nothing.
 structTypeToName :: Type -> Maybe String
-structTypeToName (TypeStruct (Just n) _ _) =
-  case captures of
-    [] -> Nothing
-    [pfx] -> Just pfx
-    [pfx, _] -> Just pfx
-    _ -> Nothing
+structTypeToName (TypeStruct (Just n) _ _) = Just $ structBaseName n
+structTypeToName _ = Nothing
+
+structBaseName :: String -> String
+structBaseName s =
+  let pfx:_ = captures
+  in pfx
   where
     pattern :: String
-    pattern = "([[:alpha:]]+\\.[[:alnum:]_]+)(\\.[[:digit:]]+)?"
+    pattern = "([[:alpha:]]+\\.[[:alnum:]_]+)(\\.[[:digit:]]+)*"
     m :: (String, String, String, [String])
-    m = n =~ pattern
+    m = s =~ pattern
     (_, _, _, captures) = m
-structTypeToName _ = Nothing
+
 
 -- | Take a type and remove all of its pointer wrappers
 stripPointerTypes :: Type -> Type
