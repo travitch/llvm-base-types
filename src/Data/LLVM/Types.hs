@@ -78,7 +78,7 @@ printModule Module { moduleIdentifier = _
                    , moduleExternalFunctions = _ -- efuncs
                    } =
   mconcat [ layoutS, singleton '\n', tripleS, singleton '\n', asmS, singleton '\n'
-          , aliasesS, singleton '\n', varS, singleton '\n', funcS, singleton '\n'
+          , aliasesS, singleton '\n', varS, fromString "\n\n", funcS, singleton '\n'
           ]
   where
     layoutS = mconcat [ fromString "target datalayout = \""
@@ -86,8 +86,8 @@ printModule Module { moduleIdentifier = _
                       ]
     tripleS = mconcat [ fromString "target triple = \"", fromString (show triple), singleton '"' ]
     asmS = printAsm asm
-    aliasesS = mconcat $ intersperse (fromString "\n\n") $ map (printValue . Value) aliases
-    varS = mconcat $ intersperse (fromString "\n\n") $ map (printValue . Value) vars
+    aliasesS = mconcat $ intersperse (fromString "\n") $ map (printValue . Value) aliases
+    varS = mconcat $ intersperse (fromString "\n") $ map (printValue . Value) vars
     funcS = mconcat $ intersperse (fromString "\n\n") $ map (printValue . Value) funcs
 
 -- | Get a list of all types of globals in the Module (functions,
