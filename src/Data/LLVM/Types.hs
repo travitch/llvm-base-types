@@ -86,18 +86,18 @@ printModule Module { moduleIdentifier = _
                       ]
     tripleS = mconcat [ fromString "target triple = \"", fromString (show triple), singleton '"' ]
     asmS = printAsm asm
-    aliasesS = mconcat $ intersperse (fromString "\n") $ map (printValue . Value) aliases
-    varS = mconcat $ intersperse (fromString "\n") $ map (printValue . Value) vars
-    funcS = mconcat $ intersperse (fromString "\n\n") $ map (printValue . Value) funcs
+    aliasesS = mconcat $ intersperse (fromString "\n") $ map (printValue . toValue) aliases
+    varS = mconcat $ intersperse (fromString "\n") $ map (printValue . toValue) vars
+    funcS = mconcat $ intersperse (fromString "\n\n") $ map (printValue . toValue) funcs
 
 -- | Get a list of all types of globals in the Module (functions,
 -- aliases, and global variables)
 moduleGlobals :: Module -> [Value]
-moduleGlobals m = concat [ map Value $ moduleAliases m
-                         , map Value $ moduleGlobalVariables m
-                         , map Value $ moduleDefinedFunctions m
-                         , map Value $ moduleExternalValues m
-                         , map Value $ moduleExternalFunctions m
+moduleGlobals m = concat [ map toValue $ moduleAliases m
+                         , map toValue $ moduleGlobalVariables m
+                         , map toValue $ moduleDefinedFunctions m
+                         , map toValue $ moduleExternalValues m
+                         , map toValue $ moduleExternalFunctions m
                          ]
 
 instance Show Module where

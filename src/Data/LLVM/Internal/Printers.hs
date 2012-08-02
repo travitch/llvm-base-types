@@ -238,9 +238,9 @@ printValue :: Value -> Builder
 printValue v = case valueContent v of
   FunctionC f ->
     let retAttrS = unwords $ map show (functionRetAttrs f)
-        argS = commaSep $ map (printValue . Value) (functionParameters f)
+        argS = commaSep $ map (printValue . toValue) (functionParameters f)
         fAttrS = spaceSep $ map fromShow (functionAttrs f)
-        bodyS = lineSep $ map (printValue . Value) (functionBody f)
+        bodyS = lineSep $ map (printValue . toValue) (functionBody f)
         vaTag = if functionIsVararg f then ", ..." else ""
         (TypeFunction rtype _ _) = functionType f
         name = functionName f
@@ -261,7 +261,7 @@ printValue v = case valueContent v of
   BasicBlockC b ->
     let indent = (fromString "  " `mappend`)
         dbgS = map (printDebugTag . valueMetadata) (basicBlockInstructions b)
-        instS = map (printValue . Value) (basicBlockInstructions b)
+        instS = map (printValue . toValue) (basicBlockInstructions b)
         instS' = zipWith mappend instS dbgS
         instS'' = mconcat $ intersperse (singleton '\n') $ map indent instS'
         identS = fromText $ identifierContent (basicBlockName b)
@@ -309,14 +309,14 @@ printValue v = case valueContent v of
       ResumeInst { resumeException = val } ->
         compose [ fromString "resume", printConstOrName val ]
       UnconditionalBranchInst { unconditionalBranchTarget = dest } ->
-        compose [ fromString "br", (printConstOrName . Value) dest ]
+        compose [ fromString "br", (printConstOrName . toValue) dest ]
       BranchInst { branchCondition = cond
                  , branchTrueTarget = tTarget
                  , branchFalseTarget = fTarget
                  } ->
         compose [ fromString "br", printConstOrName cond
-                , singleton ',', printConstOrName (Value tTarget)
-                , singleton ',', printConstOrName (Value fTarget)
+                , singleton ',', printConstOrName (toValue tTarget)
+                , singleton ',', printConstOrName (toValue fTarget)
                 ]
       SwitchInst { switchValue = val
                  , switchDefaultTarget = defTarget
@@ -326,17 +326,17 @@ printValue v = case valueContent v of
             printPair (caseVal, caseDest) =
               mconcat [ printConstOrName caseVal
                       , fromString ", "
-                      , printConstOrName (Value caseDest)
+                      , printConstOrName (toValue caseDest)
                       ]
         in compose [ fromString "switch", printConstOrName val
-                   , singleton ',', printConstOrName (Value defTarget)
+                   , singleton ',', printConstOrName (toValue defTarget)
                    , singleton '[', caseDests, singleton ']'
                    ]
       IndirectBranchInst { indirectBranchAddress = addr
                          , indirectBranchTargets = targets
                          } ->
         compose [ fromString "indirectbr", printConstOrName addr
-                , singleton '[', commaSep $ map (printConstOrName . Value) targets
+                , singleton '[', commaSep $ map (printConstOrName . toValue) targets
                 , singleton ']'
                 ]
       UnreachableInst { } -> fromString "unreachable"
@@ -570,8 +570,8 @@ printValue v = case valueContent v of
                 , commaSep $ map printArgument args
                 , singleton ')'
                 , spaceSep $ map fromShow atts
-                , fromString "to", printConstOrName (Value nlabel)
-                , fromString "unwind", printConstOrName (Value ulabel)
+                , fromString "to", printConstOrName (toValue nlabel)
+                , fromString "unwind", printConstOrName (toValue ulabel)
                 ]
       VaArgInst { vaArgValue = va } ->
         compose [ printInstNamePrefix i
@@ -619,9 +619,9 @@ printConstant c = case c of
                , blockAddressBlock = b
                } ->
     mconcat [ fromString "blockaddress("
-            , printConstOrNameNoType (Value f)
+            , printConstOrNameNoType (toValue f)
             , fromString ", "
-            , printConstOrNameNoType (Value b)
+            , printConstOrNameNoType (toValue b)
             , singleton ')'
             ]
   ConstantArray { constantArrayValues = vs } ->
@@ -652,7 +652,7 @@ printArgument (v, atts) =
           ]
 
 instance Show Argument where
-  show a = builderToString $ printArgument (Value a, [])
+  show a = builderToString $ printArgument (toValue a, [])
 
 printConstInst :: Instruction -> Builder
 printConstInst valT = case valT of
@@ -872,13 +872,13 @@ instance Labellable Value where
   toLabelValue = toLabelValue . show
 
 instance Show Instruction where
-  show = builderToString . printValue . Value
+  show = builderToString . printValue . toValue
 
 instance Show Function where
-  show = builderToString . printValue . Value
+  show = builderToString . printValue . toValue
 
 instance Show GlobalVariable where
-  show = builderToString . printValue . Value
+  show = builderToString . printValue . toValue
 
 builderToString :: Builder -> String
 builderToString = unpack . toStrict . toLazyText

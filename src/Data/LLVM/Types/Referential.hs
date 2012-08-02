@@ -1,12 +1,12 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# LANGUAGE TypeSynonymInstances, ExistentialQuantification, OverloadedStrings #-}
+{-# LANGUAGE TypeSynonymInstances, OverloadedStrings #-}
 module Data.LLVM.Types.Referential (
   -- * Types
   Type(..),
   UniqueId,
   IsValue(..),
   Value(..),
-  ValueContent(..),
+  toValue,
   Function(..),
   functionBody,
   functionInstructions,
@@ -185,22 +185,22 @@ instance Eq Type where
   _ == _ = False
 
 data Metadata =
-  MetaSourceLocation { metaValueUniqueId :: !UniqueId
+  MetaSourceLocation { metaValueUniqueId :: UniqueId
                      , metaSourceRow :: !Int32
                      , metaSourceCol :: !Int32
                      , metaSourceScope :: Maybe Metadata
                      }
-  | MetaDWLexicalBlock { metaValueUniqueId :: !UniqueId
+  | MetaDWLexicalBlock { metaValueUniqueId :: UniqueId
                        , metaLexicalBlockRow :: !Int32
                        , metaLexicalBlockCol :: !Int32
                        , metaLexicalBlockContext :: Maybe Metadata
                        }
-  | MetaDWNamespace { metaValueUniqueId :: !UniqueId
+  | MetaDWNamespace { metaValueUniqueId :: UniqueId
                     , metaNamespaceContext :: Maybe Metadata
                     , metaNamespaceName :: !Text
                     , metaNamespaceLine :: !Int32
                     }
-  | MetaDWCompileUnit { metaValueUniqueId :: !UniqueId
+  | MetaDWCompileUnit { metaValueUniqueId :: UniqueId
                       , metaCompileUnitLanguage :: !DW_LANG
                       , metaCompileUnitSourceFile :: !Text
                       , metaCompileUnitCompileDir :: !Text
@@ -214,11 +214,11 @@ data Metadata =
                       , metaCompileUnitSubprograms :: [Maybe Metadata]
                       , metaCompileUnitGlobalVariables :: [Maybe Metadata]
                       }
-  | MetaDWFile { metaValueUniqueId :: !UniqueId
+  | MetaDWFile { metaValueUniqueId :: UniqueId
                , metaFileSourceFile :: !Text
                , metaFileSourceDir :: !Text
                }
-  | MetaDWVariable { metaValueUniqueId :: !UniqueId
+  | MetaDWVariable { metaValueUniqueId :: UniqueId
                    , metaGlobalVarContext :: Maybe Metadata
                    , metaGlobalVarName :: !Text
                    , metaGlobalVarDisplayName :: !Text
@@ -228,7 +228,7 @@ data Metadata =
                    , metaGlobalVarStatic :: !Bool
                    , metaGlobalVarNotExtern :: !Bool
                    }
-  | MetaDWSubprogram { metaValueUniqueId :: !UniqueId
+  | MetaDWSubprogram { metaValueUniqueId :: UniqueId
                      , metaSubprogramContext :: Maybe Metadata
                      , metaSubprogramName :: !Text
                      , metaSubprogramDisplayName :: !Text
@@ -245,7 +245,7 @@ data Metadata =
                      , metaSubprogramArtificial :: !Bool
                      , metaSubprogramOptimized :: !Bool
                      }
-  | MetaDWBaseType { metaValueUniqueId :: !UniqueId
+  | MetaDWBaseType { metaValueUniqueId :: UniqueId
                    , metaBaseTypeContext :: Maybe Metadata
                    , metaBaseTypeName :: !Text
                    , metaBaseTypeFile :: Maybe Metadata
@@ -256,7 +256,7 @@ data Metadata =
                    , metaBaseTypeFlags :: !Int32
                    , metaBaseTypeEncoding :: !DW_ATE
                    }
-  | MetaDWDerivedType { metaValueUniqueId :: !UniqueId
+  | MetaDWDerivedType { metaValueUniqueId :: UniqueId
                       , metaDerivedTypeTag :: !DW_TAG
                       , metaDerivedTypeContext :: Maybe Metadata
                       , metaDerivedTypeName :: !Text
@@ -272,7 +272,7 @@ data Metadata =
                       , metaDerivedTypeIsProtected :: !Bool
                       , metaDerivedTypeParent :: Maybe Metadata
                       }
-  | MetaDWCompositeType { metaValueUniqueId :: !UniqueId
+  | MetaDWCompositeType { metaValueUniqueId :: UniqueId
                         , metaCompositeTypeTag :: !DW_TAG
                         , metaCompositeTypeContext :: Maybe Metadata
                         , metaCompositeTypeName :: !Text
@@ -294,15 +294,15 @@ data Metadata =
                         , metaCompositeTypeIsPrivate :: !Bool
                         , metaCompositeTypeIsByRefStruct :: !Bool
                         }
-  | MetaDWSubrange { metaValueUniqueId :: !UniqueId
+  | MetaDWSubrange { metaValueUniqueId :: UniqueId
                    , metaSubrangeLow :: !Int64
                    , metaSubrangeHigh :: !Int64
                    }
-  | MetaDWEnumerator { metaValueUniqueId :: !UniqueId
+  | MetaDWEnumerator { metaValueUniqueId :: UniqueId
                      , metaEnumeratorName :: !Text
                      , metaEnumeratorValue :: !Int64
                      }
-  | MetaDWLocal { metaValueUniqueId :: !UniqueId
+  | MetaDWLocal { metaValueUniqueId :: UniqueId
                 , metaLocalTag :: !DW_TAG
                 , metaLocalContext :: Maybe Metadata
                 , metaLocalName :: !Text
@@ -313,14 +313,14 @@ data Metadata =
                 , metaLocalIsBlockByRefVar :: !Bool
                 , metaLocalAddrElements :: [Int64]
                 }
-  | MetaDWTemplateTypeParameter { metaValueUniqueId :: !UniqueId
+  | MetaDWTemplateTypeParameter { metaValueUniqueId :: UniqueId
                                 , metaTemplateTypeParameterContext :: Maybe Metadata
                                 , metaTemplateTypeParameterType :: Maybe Metadata
                                 , metaTemplateTypeParameterLine :: !Int32
                                 , metaTemplateTypeParameterCol :: !Int32
                                 , metaTemplateTypeParameterName :: !Text
                                 }
-  | MetaDWTemplateValueParameter { metaValueUniqueId :: !UniqueId
+  | MetaDWTemplateValueParameter { metaValueUniqueId :: UniqueId
                                  , metaTemplateValueParameterContext :: Maybe Metadata
                                  , metaTemplateValueParameterType :: Maybe Metadata
                                  , metaTemplateValueParameterLine :: !Int32
@@ -328,10 +328,10 @@ data Metadata =
                                  , metaTemplateValueParameterValue :: !Int64
                                  , metaTemplateValueParameterName :: !Text
                                  }
-  | MetadataUnknown { metaValueUniqueId :: !UniqueId
+  | MetadataUnknown { metaValueUniqueId :: UniqueId
                     , metaUnknownValue :: !Text
                     }
-  | MetadataList { metaValueUniqueId :: !UniqueId
+  | MetadataList { metaValueUniqueId :: UniqueId
                  , metaListElements :: [Maybe Metadata]
                  }
 
@@ -355,24 +355,83 @@ instance Hashable Metadata where
 -- point.  All references will be resolved as part of the graph, but
 -- the name will be useful for visualization purposes and
 -- serialization.
-data Value = forall a . IsValue a => Value a
+-- data Value = forall a . IsValue a => Value a
+
+-- Functions have parameters if they are not external
+data Value = FunctionC Function
+           | ArgumentC Argument
+           | BasicBlockC BasicBlock
+           | GlobalVariableC GlobalVariable
+           | GlobalAliasC GlobalAlias
+           | ExternalValueC ExternalValue
+           | ExternalFunctionC ExternalFunction
+           | InstructionC Instruction
+           | ConstantC Constant
 
 class IsValue a where
   valueType :: a -> Type
   valueName :: a -> Maybe Identifier
   valueMetadata :: a -> [Metadata]
-  valueContent :: a -> ValueContent
+  valueContent :: a -> Value
   valueUniqueId :: a -> UniqueId
 
 instance IsValue Value where
-  valueType (Value a) = valueType a
-  valueName (Value a) = valueName a
-  valueMetadata (Value a) = valueMetadata a
-  valueContent (Value a) = valueContent a
-  valueUniqueId (Value a) = valueUniqueId a
+  valueType a =
+    case a of
+      FunctionC f -> functionType f
+      ArgumentC arg -> argumentType arg
+      BasicBlockC _ -> TypeLabel
+      GlobalVariableC g -> globalVariableType g
+      GlobalAliasC g -> valueType g
+      ExternalValueC e -> externalValueType e
+      ExternalFunctionC e -> externalFunctionType e
+      InstructionC i -> instructionType i
+      ConstantC c -> constantType c
+  valueName a =
+    case a of
+      FunctionC f -> valueName f
+      ArgumentC arg -> valueName arg
+      BasicBlockC b -> valueName b
+      GlobalVariableC g -> valueName g
+      GlobalAliasC g -> valueName g
+      ExternalValueC e -> valueName e
+      ExternalFunctionC e -> valueName e
+      InstructionC i -> valueName i
+      ConstantC _ -> Nothing
+  valueMetadata a =
+    case a of
+      FunctionC f -> functionMetadata f
+      ArgumentC arg -> argumentMetadata arg
+      BasicBlockC b -> basicBlockMetadata b
+      GlobalVariableC g -> globalVariableMetadata g
+      GlobalAliasC g -> valueMetadata g
+      ExternalValueC e -> externalValueMetadata e
+      ExternalFunctionC e -> externalFunctionMetadata e
+      InstructionC i -> instructionMetadata i
+      ConstantC _ -> []
+  valueContent = id
+  valueUniqueId a =
+    case a of
+      FunctionC f -> functionUniqueId f
+      ArgumentC arg -> argumentUniqueId arg
+      BasicBlockC b -> basicBlockUniqueId b
+      GlobalVariableC g -> globalVariableUniqueId g
+      GlobalAliasC g -> valueUniqueId g
+      ExternalValueC e -> externalValueUniqueId e
+      ExternalFunctionC e -> externalFunctionUniqueId e
+      InstructionC i -> instructionUniqueId i
+      ConstantC c -> constantUniqueId c
+
+toValue :: (IsValue a) => a -> Value
+toValue = valueContent
 
 instance Eq Value where
-  v1 == v2 = valueUniqueId v1 == valueUniqueId v2
+  (==) = valueEq
+
+{-# INLINE valueEq #-}
+valueEq :: Value -> Value -> Bool
+valueEq v1 v2 =
+  valueUniqueId v1 == valueUniqueId v2
 
 instance Ord Value where
   v1 `compare` v2 = comparing valueUniqueId v1 v2
@@ -389,7 +448,7 @@ instance HasFunction Function where
 data Function = Function { functionType :: Type
                          , functionName :: !Identifier
                          , functionMetadata :: [Metadata]
-                         , functionUniqueId :: !UniqueId
+                         , functionUniqueId :: UniqueId
                          , functionParameters :: [Argument]
                          , functionBodyVector :: Vector BasicBlock
                          , functionLinkage :: !LinkageType
@@ -495,7 +554,7 @@ instance Ord Function where
 data Argument = Argument { argumentType :: Type
                          , argumentName :: !Identifier
                          , argumentMetadata :: [Metadata]
-                         , argumentUniqueId :: !UniqueId
+                         , argumentUniqueId :: UniqueId
                          , argumentParamAttrs :: [ParamAttribute]
                          , argumentFunction :: Function
                          }
@@ -518,7 +577,7 @@ instance Ord Argument where
 
 data BasicBlock = BasicBlock { basicBlockName :: !Identifier
                              , basicBlockMetadata :: [Metadata]
-                             , basicBlockUniqueId :: !UniqueId
+                             , basicBlockUniqueId :: UniqueId
                              , basicBlockInstructionVector :: Vector Instruction
                              , basicBlockFunction :: Function
                              }
@@ -560,7 +619,7 @@ basicBlockSplitPhiNodes :: BasicBlock -> ([Instruction], [Instruction])
 basicBlockSplitPhiNodes = span instructionIsPhiNode . basicBlockInstructions
 
 instance IsValue BasicBlock where
-  valueType _ = TypeVoid
+  valueType _ = TypeLabel
   valueName = Just . basicBlockName
   valueMetadata = basicBlockMetadata
   valueContent = BasicBlockC
@@ -578,7 +637,7 @@ instance Ord BasicBlock where
 data GlobalVariable = GlobalVariable { globalVariableType :: Type
                                      , globalVariableName :: !Identifier
                                      , globalVariableMetadata :: [Metadata]
-                                     , globalVariableUniqueId :: !UniqueId
+                                     , globalVariableUniqueId :: UniqueId
                                      , globalVariableLinkage :: !LinkageType
                                      , globalVariableVisibility :: !VisibilityStyle
                                      , globalVariableInitializer :: Maybe Value
@@ -609,7 +668,7 @@ data GlobalAlias = GlobalAlias { globalAliasTarget :: Value
                                , globalAliasName :: !Identifier
                                , globalAliasVisibility :: !VisibilityStyle
                                , globalAliasMetadata :: [Metadata]
-                               , globalAliasUniqueId :: !UniqueId
+                               , globalAliasUniqueId :: UniqueId
                                }
 
 instance IsValue GlobalAlias where
@@ -631,7 +690,7 @@ instance Ord GlobalAlias where
 data ExternalValue = ExternalValue { externalValueType :: Type
                                    , externalValueName :: !Identifier
                                    , externalValueMetadata :: [Metadata]
-                                   , externalValueUniqueId :: !UniqueId
+                                   , externalValueUniqueId :: UniqueId
                                    }
 
 instance IsValue ExternalValue where
@@ -653,7 +712,7 @@ instance Ord ExternalValue where
 data ExternalFunction = ExternalFunction { externalFunctionType :: Type
                                          , externalFunctionName :: !Identifier
                                          , externalFunctionMetadata :: [Metadata]
-                                         , externalFunctionUniqueId :: !UniqueId
+                                         , externalFunctionUniqueId :: UniqueId
                                          , externalFunctionAttrs :: [FunctionAttribute]
                                          }
 
@@ -729,31 +788,31 @@ instructionName i =
     _ -> _instructionName i
 
 data Instruction = RetInst { instructionMetadata :: [Metadata]
-                           , instructionUniqueId :: !UniqueId
+                           , instructionUniqueId :: UniqueId
                            , instructionBasicBlock :: Maybe BasicBlock
                            , retInstValue :: Maybe Value
                            }
                  | UnconditionalBranchInst { instructionMetadata :: [Metadata]
-                                           , instructionUniqueId :: !UniqueId
+                                           , instructionUniqueId :: UniqueId
                                            , instructionBasicBlock :: Maybe BasicBlock
                                            , unconditionalBranchTarget :: BasicBlock
                                            }
                  | BranchInst { instructionMetadata :: [Metadata]
-                              , instructionUniqueId :: !UniqueId
+                              , instructionUniqueId :: UniqueId
                               , instructionBasicBlock :: Maybe BasicBlock
                               , branchCondition :: Value
                               , branchTrueTarget :: BasicBlock
                               , branchFalseTarget :: BasicBlock
                               }
                  | SwitchInst { instructionMetadata :: [Metadata]
-                              , instructionUniqueId :: !UniqueId
+                              , instructionUniqueId :: UniqueId
                               , instructionBasicBlock :: Maybe BasicBlock
                               , switchValue :: Value
                               , switchDefaultTarget :: BasicBlock
                               , switchCases :: [(Value, BasicBlock)]
                               }
                  | IndirectBranchInst { instructionMetadata :: [Metadata]
-                                      , instructionUniqueId :: !UniqueId
+                                      , instructionUniqueId :: UniqueId
                                       , instructionBasicBlock :: Maybe BasicBlock
                                       , indirectBranchAddress :: Value
                                       , indirectBranchTargets :: [BasicBlock]
@@ -761,18 +820,18 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                    -- ^ The target must be derived from a blockaddress constant
                    -- The list is a list of possible target destinations
                  | ResumeInst { instructionMetadata :: [Metadata]
-                              , instructionUniqueId :: !UniqueId
+                              , instructionUniqueId :: UniqueId
                               , instructionBasicBlock :: Maybe BasicBlock
                               , resumeException :: Value
                               }
                  | UnreachableInst { instructionMetadata :: [Metadata]
-                                   , instructionUniqueId :: !UniqueId
+                                   , instructionUniqueId :: UniqueId
                                    , instructionBasicBlock :: Maybe BasicBlock
                                    }
                  | ExtractElementInst { _instructionType :: Type
                                       , _instructionName :: !(Maybe Identifier)
                                       , instructionMetadata :: [Metadata]
-                                      , instructionUniqueId :: !UniqueId
+                                      , instructionUniqueId :: UniqueId
                                       , instructionBasicBlock :: Maybe BasicBlock
                                       , extractElementVector :: Value
                                       , extractElementIndex :: Value
@@ -780,7 +839,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | InsertElementInst { _instructionType :: Type
                                      , _instructionName :: !(Maybe Identifier)
                                      , instructionMetadata :: [Metadata]
-                                     , instructionUniqueId :: !UniqueId
+                                     , instructionUniqueId :: UniqueId
                                      , instructionBasicBlock :: Maybe BasicBlock
                                      , insertElementVector :: Value
                                      , insertElementValue :: Value
@@ -789,7 +848,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | ShuffleVectorInst { _instructionType :: Type
                                      , _instructionName :: !(Maybe Identifier)
                                      , instructionMetadata :: [Metadata]
-                                     , instructionUniqueId :: !UniqueId
+                                     , instructionUniqueId :: UniqueId
                                      , instructionBasicBlock :: Maybe BasicBlock
                                      , shuffleVectorV1 :: Value
                                      , shuffleVectorV2 :: Value
@@ -798,7 +857,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | ExtractValueInst { _instructionType :: Type
                                     , _instructionName :: !(Maybe Identifier)
                                     , instructionMetadata :: [Metadata]
-                                    , instructionUniqueId :: !UniqueId
+                                    , instructionUniqueId :: UniqueId
                                     , instructionBasicBlock :: Maybe BasicBlock
                                     , extractValueAggregate :: Value
                                     , extractValueIndices :: [Int]
@@ -806,7 +865,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | InsertValueInst { _instructionType :: Type
                                    , _instructionName :: !(Maybe Identifier)
                                    , instructionMetadata :: [Metadata]
-                                   , instructionUniqueId :: !UniqueId
+                                   , instructionUniqueId :: UniqueId
                                    , instructionBasicBlock :: Maybe BasicBlock
                                    , insertValueAggregate :: Value
                                    , insertValueValue :: Value
@@ -815,7 +874,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | AllocaInst { _instructionType :: Type
                               , _instructionName :: !(Maybe Identifier)
                               , instructionMetadata :: [Metadata]
-                              , instructionUniqueId :: !UniqueId
+                              , instructionUniqueId :: UniqueId
                               , instructionBasicBlock :: Maybe BasicBlock
                               , allocaNumElements :: Value
                               , allocaAlign :: !Int64
@@ -823,14 +882,14 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | LoadInst { _instructionType :: Type
                             , _instructionName :: !(Maybe Identifier)
                             , instructionMetadata :: [Metadata]
-                            , instructionUniqueId :: !UniqueId
+                            , instructionUniqueId :: UniqueId
                             , instructionBasicBlock :: Maybe BasicBlock
                             , loadIsVolatile :: !Bool
                             , loadAddress :: Value
                             , loadAlignment :: !Int64
                             }
                  | StoreInst { instructionMetadata :: [Metadata]
-                             , instructionUniqueId :: !UniqueId
+                             , instructionUniqueId :: UniqueId
                              , instructionBasicBlock :: Maybe BasicBlock
                              , storeIsVolatile :: !Bool
                              , storeValue :: Value
@@ -839,13 +898,13 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                              , storeAddressSpace :: !Int
                              }
                  | FenceInst { instructionMetadata :: [Metadata]
-                             , instructionUniqueId :: !UniqueId
+                             , instructionUniqueId :: UniqueId
                              , instructionBasicBlock :: Maybe BasicBlock
                              , fenceOrdering :: !AtomicOrdering
                              , fenceScope :: !SynchronizationScope
                              }
                  | AtomicCmpXchgInst { instructionMetadata :: [Metadata]
-                                     , instructionUniqueId :: !UniqueId
+                                     , instructionUniqueId :: UniqueId
                                      , instructionBasicBlock :: Maybe BasicBlock
                                      , atomicCmpXchgOrdering :: !AtomicOrdering
                                      , atomicCmpXchgScope :: !SynchronizationScope
@@ -856,7 +915,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                                      , atomicCmpXchgNewValue :: Value
                                      }
                  | AtomicRMWInst { instructionMetadata :: [Metadata]
-                                 , instructionUniqueId :: !UniqueId
+                                 , instructionUniqueId :: UniqueId
                                  , instructionBasicBlock :: Maybe BasicBlock
                                  , atomicRMWOrdering :: !AtomicOrdering
                                  , atomicRMWScope :: !SynchronizationScope
@@ -869,7 +928,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | AddInst { _instructionType :: Type
                            , _instructionName :: !(Maybe Identifier)
                            , instructionMetadata :: [Metadata]
-                           , instructionUniqueId :: !UniqueId
+                           , instructionUniqueId :: UniqueId
                            , instructionBasicBlock :: Maybe BasicBlock
                            , binaryArithFlags :: !ArithFlags
                            , binaryLhs :: Value
@@ -878,7 +937,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | SubInst { _instructionType :: Type
                            , _instructionName :: !(Maybe Identifier)
                            , instructionMetadata :: [Metadata]
-                           , instructionUniqueId :: !UniqueId
+                           , instructionUniqueId :: UniqueId
                            , instructionBasicBlock :: Maybe BasicBlock
                            , binaryArithFlags :: !ArithFlags
                            , binaryLhs :: Value
@@ -887,7 +946,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | MulInst { _instructionType :: Type
                            , _instructionName :: !(Maybe Identifier)
                            , instructionMetadata :: [Metadata]
-                           , instructionUniqueId :: !UniqueId
+                           , instructionUniqueId :: UniqueId
                            , instructionBasicBlock :: Maybe BasicBlock
                            , binaryArithFlags :: !ArithFlags
                            , binaryLhs :: Value
@@ -896,7 +955,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | DivInst { _instructionType :: Type
                            , _instructionName :: !(Maybe Identifier)
                            , instructionMetadata :: [Metadata]
-                           , instructionUniqueId :: !UniqueId
+                           , instructionUniqueId :: UniqueId
                            , instructionBasicBlock :: Maybe BasicBlock
                            , binaryLhs :: Value
                            , binaryRhs :: Value
@@ -904,7 +963,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | RemInst { _instructionType :: Type
                            , _instructionName :: !(Maybe Identifier)
                            , instructionMetadata :: [Metadata]
-                           , instructionUniqueId :: !UniqueId
+                           , instructionUniqueId :: UniqueId
                            , instructionBasicBlock :: Maybe BasicBlock
                            , binaryLhs :: Value
                            , binaryRhs :: Value
@@ -912,7 +971,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | ShlInst { _instructionType :: Type
                            , _instructionName :: !(Maybe Identifier)
                            , instructionMetadata :: [Metadata]
-                           , instructionUniqueId :: !UniqueId
+                           , instructionUniqueId :: UniqueId
                            , instructionBasicBlock :: Maybe BasicBlock
                            , binaryLhs :: Value
                            , binaryRhs :: Value
@@ -920,7 +979,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | LshrInst { _instructionType :: Type
                             , _instructionName :: !(Maybe Identifier)
                             , instructionMetadata :: [Metadata]
-                            , instructionUniqueId :: !UniqueId
+                            , instructionUniqueId :: UniqueId
                             , instructionBasicBlock :: Maybe BasicBlock
                             , binaryLhs :: Value
                             , binaryRhs :: Value
@@ -928,7 +987,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | AshrInst { _instructionType :: Type
                             , _instructionName :: !(Maybe Identifier)
                             , instructionMetadata :: [Metadata]
-                            , instructionUniqueId :: !UniqueId
+                            , instructionUniqueId :: UniqueId
                             , instructionBasicBlock :: Maybe BasicBlock
                             , binaryLhs :: Value
                             , binaryRhs :: Value
@@ -936,7 +995,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | AndInst { _instructionType :: Type
                            , _instructionName :: !(Maybe Identifier)
                            , instructionMetadata :: [Metadata]
-                           , instructionUniqueId :: !UniqueId
+                           , instructionUniqueId :: UniqueId
                            , instructionBasicBlock :: Maybe BasicBlock
                            , binaryLhs :: Value
                            , binaryRhs :: Value
@@ -944,7 +1003,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | OrInst { _instructionType :: Type
                           , _instructionName :: !(Maybe Identifier)
                           , instructionMetadata :: [Metadata]
-                          , instructionUniqueId :: !UniqueId
+                          , instructionUniqueId :: UniqueId
                           , instructionBasicBlock :: Maybe BasicBlock
                           , binaryLhs :: Value
                           , binaryRhs :: Value
@@ -952,7 +1011,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | XorInst { _instructionType :: Type
                            , _instructionName :: !(Maybe Identifier)
                            , instructionMetadata :: [Metadata]
-                           , instructionUniqueId :: !UniqueId
+                           , instructionUniqueId :: UniqueId
                            , instructionBasicBlock :: Maybe BasicBlock
                            , binaryLhs :: Value
                            , binaryRhs :: Value
@@ -960,91 +1019,91 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | TruncInst { _instructionType :: Type
                              , _instructionName :: !(Maybe Identifier)
                              , instructionMetadata :: [Metadata]
-                             , instructionUniqueId :: !UniqueId
+                             , instructionUniqueId :: UniqueId
                              , instructionBasicBlock :: Maybe BasicBlock
                              , castedValue :: Value
                              }
                  | ZExtInst { _instructionType :: Type
                             , _instructionName :: !(Maybe Identifier)
                             , instructionMetadata :: [Metadata]
-                            , instructionUniqueId :: !UniqueId
+                            , instructionUniqueId :: UniqueId
                             , instructionBasicBlock :: Maybe BasicBlock
                             , castedValue :: Value
                             }
                  | SExtInst { _instructionType :: Type
                             , _instructionName :: !(Maybe Identifier)
                             , instructionMetadata :: [Metadata]
-                            , instructionUniqueId :: !UniqueId
+                            , instructionUniqueId :: UniqueId
                             , instructionBasicBlock :: Maybe BasicBlock
                             , castedValue :: Value
                             }
                  | FPTruncInst { _instructionType :: Type
                                , _instructionName :: !(Maybe Identifier)
                                , instructionMetadata :: [Metadata]
-                               , instructionUniqueId :: !UniqueId
+                               , instructionUniqueId :: UniqueId
                                , instructionBasicBlock :: Maybe BasicBlock
                                , castedValue :: Value
                                }
                  | FPExtInst { _instructionType :: Type
                              , _instructionName :: !(Maybe Identifier)
                              , instructionMetadata :: [Metadata]
-                             , instructionUniqueId :: !UniqueId
+                             , instructionUniqueId :: UniqueId
                              , instructionBasicBlock :: Maybe BasicBlock
                              , castedValue :: Value
                              }
                  | FPToSIInst { _instructionType :: Type
                               , _instructionName :: !(Maybe Identifier)
                               , instructionMetadata :: [Metadata]
-                              , instructionUniqueId :: !UniqueId
+                              , instructionUniqueId :: UniqueId
                               , instructionBasicBlock :: Maybe BasicBlock
                               , castedValue :: Value
                               }
                  | FPToUIInst { _instructionType :: Type
                               , _instructionName :: !(Maybe Identifier)
                               , instructionMetadata :: [Metadata]
-                              , instructionUniqueId :: !UniqueId
+                              , instructionUniqueId :: UniqueId
                               , instructionBasicBlock :: Maybe BasicBlock
                               , castedValue :: Value
                               }
                  | SIToFPInst { _instructionType :: Type
                               , _instructionName :: !(Maybe Identifier)
                               , instructionMetadata :: [Metadata]
-                              , instructionUniqueId :: !UniqueId
+                              , instructionUniqueId :: UniqueId
                               , instructionBasicBlock :: Maybe BasicBlock
                               , castedValue :: Value
                               }
                  | UIToFPInst { _instructionType :: Type
                               , _instructionName :: !(Maybe Identifier)
                               , instructionMetadata :: [Metadata]
-                              , instructionUniqueId :: !UniqueId
+                              , instructionUniqueId :: UniqueId
                               , instructionBasicBlock :: Maybe BasicBlock
                               , castedValue :: Value
                               }
                  | PtrToIntInst { _instructionType :: Type
                                 , _instructionName :: !(Maybe Identifier)
                                 , instructionMetadata :: [Metadata]
-                                , instructionUniqueId :: !UniqueId
+                                , instructionUniqueId :: UniqueId
                                 , instructionBasicBlock :: Maybe BasicBlock
                                 , castedValue :: Value
                                 }
                  | IntToPtrInst { _instructionType :: Type
                                 , _instructionName :: !(Maybe Identifier)
                                 , instructionMetadata :: [Metadata]
-                                , instructionUniqueId :: !UniqueId
+                                , instructionUniqueId :: UniqueId
                                 , instructionBasicBlock :: Maybe BasicBlock
                                 , castedValue :: Value
                                 }
                  | BitcastInst { _instructionType :: Type
                                , _instructionName :: !(Maybe Identifier)
                                , instructionMetadata :: [Metadata]
-                               , instructionUniqueId :: !UniqueId
+                               , instructionUniqueId :: UniqueId
                                , instructionBasicBlock :: Maybe BasicBlock
                                , castedValue :: Value
                                }
                  | ICmpInst { _instructionType :: Type
                             , _instructionName :: !(Maybe Identifier)
                             , instructionMetadata :: [Metadata]
-                            , instructionUniqueId :: !UniqueId
+                            , instructionUniqueId :: UniqueId
                             , instructionBasicBlock :: Maybe BasicBlock
                             , cmpPredicate :: !CmpPredicate
                             , cmpV1 :: Value
@@ -1053,7 +1112,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | FCmpInst { _instructionType :: Type
                             , _instructionName :: !(Maybe Identifier)
                             , instructionMetadata :: [Metadata]
-                            , instructionUniqueId :: !UniqueId
+                            , instructionUniqueId :: UniqueId
                             , instructionBasicBlock :: Maybe BasicBlock
                             , cmpPredicate :: !CmpPredicate
                             , cmpV1 :: Value
@@ -1062,7 +1121,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | SelectInst { _instructionType :: Type
                               , _instructionName :: !(Maybe Identifier)
                               , instructionMetadata :: [Metadata]
-                              , instructionUniqueId :: !UniqueId
+                              , instructionUniqueId :: UniqueId
                               , instructionBasicBlock :: Maybe BasicBlock
                               , selectCondition :: Value
                               , selectTrueValue :: Value
@@ -1071,7 +1130,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | CallInst { _instructionType :: Type
                             , _instructionName :: !(Maybe Identifier)
                             , instructionMetadata :: [Metadata]
-                            , instructionUniqueId :: !UniqueId
+                            , instructionUniqueId :: UniqueId
                             , instructionBasicBlock :: Maybe BasicBlock
                             , callIsTail :: !Bool
                             , callConvention :: !CallingConvention
@@ -1084,7 +1143,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | GetElementPtrInst { _instructionType :: Type
                                      , _instructionName :: !(Maybe Identifier)
                                      , instructionMetadata :: [Metadata]
-                                     , instructionUniqueId :: !UniqueId
+                                     , instructionUniqueId :: UniqueId
                                      , instructionBasicBlock :: Maybe BasicBlock
                                      , getElementPtrInBounds :: !Bool
                                      , getElementPtrValue :: Value
@@ -1094,7 +1153,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | InvokeInst { _instructionType :: Type
                               , _instructionName :: !(Maybe Identifier)
                               , instructionMetadata :: [Metadata]
-                              , instructionUniqueId :: !UniqueId
+                              , instructionUniqueId :: UniqueId
                               , instructionBasicBlock :: Maybe BasicBlock
                               , invokeConvention :: !CallingConvention
                               , invokeParamAttrs :: [ParamAttribute]
@@ -1108,14 +1167,14 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | VaArgInst { _instructionType :: Type
                              , _instructionName :: !(Maybe Identifier)
                              , instructionMetadata :: [Metadata]
-                             , instructionUniqueId :: !UniqueId
+                             , instructionUniqueId :: UniqueId
                              , instructionBasicBlock :: Maybe BasicBlock
                              , vaArgValue :: Value
                              }
                  | LandingPadInst { _instructionType :: Type
                                   , _instructionName :: !(Maybe Identifier)
                                   , instructionMetadata :: [Metadata]
-                                  , instructionUniqueId :: !UniqueId
+                                  , instructionUniqueId :: UniqueId
                                   , instructionBasicBlock :: Maybe BasicBlock
                                   , landingPadPersonality :: Value
                                   , landingPadIsCleanup :: !Bool
@@ -1124,7 +1183,7 @@ data Instruction = RetInst { instructionMetadata :: [Metadata]
                  | PhiNode { _instructionType :: Type
                            , _instructionName :: !(Maybe Identifier)
                            , instructionMetadata :: [Metadata]
-                           , instructionUniqueId :: !UniqueId
+                           , instructionUniqueId :: UniqueId
                            , instructionBasicBlock :: Maybe BasicBlock
                            , phiIncomingValues :: [(Value, Value)]
                            }
@@ -1145,49 +1204,49 @@ instance Ord Instruction where
   i1 `compare` i2 = comparing instructionUniqueId i1 i2
 
 data Constant = UndefValue { constantType :: Type
-                           , constantUniqueId :: !UniqueId
+                           , constantUniqueId :: UniqueId
                            }
               | ConstantAggregateZero { constantType :: Type
-                                      , constantUniqueId :: !UniqueId
+                                      , constantUniqueId :: UniqueId
                                       }
               | ConstantPointerNull { constantType :: Type
-                                    , constantUniqueId :: !UniqueId
+                                    , constantUniqueId :: UniqueId
                                     }
               | BlockAddress { constantType :: Type
-                             , constantUniqueId :: !UniqueId
+                             , constantUniqueId :: UniqueId
                              , blockAddressFunction :: Function
                              , blockAddressBlock :: BasicBlock
                              }
               | ConstantArray { constantType :: Type
-                              , constantUniqueId :: !UniqueId
+                              , constantUniqueId :: UniqueId
                               , constantArrayValues :: [Value]
                               }
               | ConstantFP { constantType :: Type
-                           , constantUniqueId :: !UniqueId
+                           , constantUniqueId :: UniqueId
                            , constantFPValue :: !Double
                            }
               | ConstantInt { constantType :: Type
-                            , constantUniqueId :: !UniqueId
+                            , constantUniqueId :: UniqueId
                             , constantIntValue :: !Integer
                             }
               | ConstantString { constantType :: Type
-                               , constantUniqueId :: !UniqueId
+                               , constantUniqueId :: UniqueId
                                , constantStringValue :: !Text
                                }
               | ConstantStruct { constantType :: Type
-                               , constantUniqueId :: !UniqueId
+                               , constantUniqueId :: UniqueId
                                , constantStructValues :: [Value]
                                }
               | ConstantVector { constantType :: Type
-                               , constantUniqueId :: !UniqueId
+                               , constantUniqueId :: UniqueId
                                , constantVectorValues :: [Value]
                                }
               | ConstantValue { constantType :: Type
-                              , constantUniqueId :: !UniqueId
+                              , constantUniqueId :: UniqueId
                               , constantInstruction :: Instruction
                               }
               | InlineAsm { constantType :: Type
-                          , constantUniqueId :: !UniqueId
+                          , constantUniqueId :: UniqueId
                           , inlineAsmString :: !Text
                           , inlineAsmConstraints :: !Text
                           }
@@ -1208,30 +1267,21 @@ instance Hashable Constant where
 instance Ord Constant where
   c1 `compare` c2 = comparing constantUniqueId c1 c2
 
--- Functions have parameters if they are not external
-data ValueContent = FunctionC Function
-                  | ArgumentC Argument
-                  | BasicBlockC BasicBlock
-                  | GlobalVariableC GlobalVariable
-                  | GlobalAliasC GlobalAlias
-                  | ExternalValueC ExternalValue
-                  | ExternalFunctionC ExternalFunction
-                  | InstructionC Instruction
-                  | ConstantC Constant
-
 {-# INLINABLE valueContent' #-}
 -- | A version of @valueContent@ that ignores (peeks through)
 -- bitcasts.  This is most useful in view patterns.
-valueContent' :: IsValue a => a -> ValueContent
-valueContent' v = case valueContent v of
-  InstructionC BitcastInst { castedValue = cv } -> valueContent' cv
-  ConstantC ConstantValue { constantInstruction = BitcastInst { castedValue = cv } } -> valueContent' cv
-  _ -> valueContent v
+valueContent' :: IsValue a => a -> Value
+valueContent' v =
+  case valueContent v of
+    InstructionC BitcastInst { castedValue = cv } -> valueContent' cv
+    ConstantC ConstantValue { constantInstruction = BitcastInst { castedValue = cv } } -> valueContent' cv
+    _ -> valueContent v
 
 {-# INLINABLE stripBitcasts #-}
 -- | Strip all wrapper bitcasts from a Value
 stripBitcasts :: IsValue a => a -> Value
-stripBitcasts v = case valueContent v of
-  InstructionC BitcastInst { castedValue = cv } -> stripBitcasts cv
-  ConstantC ConstantValue { constantInstruction = BitcastInst { castedValue = cv } } -> stripBitcasts cv
-  _ -> Value v
+stripBitcasts v =
+  case valueContent v of
+    InstructionC BitcastInst { castedValue = cv } -> stripBitcasts cv
+    ConstantC ConstantValue { constantInstruction = BitcastInst { castedValue = cv } } -> stripBitcasts cv
+    _ -> valueContent v
