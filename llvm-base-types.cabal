@@ -34,6 +34,7 @@ library
                  Data.LLVM.Types.Referential
   build-tools: c2hs
   ghc-options: -Wall -funbox-strict-fields
+  ghc-prof-options: -auto-all
   hs-source-dirs: src
   include-dirs: src
   -- other-modules:
