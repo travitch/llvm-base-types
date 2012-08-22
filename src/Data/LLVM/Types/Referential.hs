@@ -20,6 +20,7 @@ module Data.LLVM.Types.Referential (
   Instruction(..),
   instructionType,
   instructionName,
+  instructionFunction,
   GlobalVariable(..),
   GlobalAlias(..),
   ExternalValue(..),
@@ -754,6 +755,11 @@ instructionIsTerminator UnreachableInst {} = True
 instructionIsTerminator InvokeInst {} = True
 instructionIsTerminator _ = False
 -- Note, the new ResumeInst needs to be handled
+
+instructionFunction :: Instruction -> Maybe Function
+instructionFunction i = do
+  bb <- instructionBasicBlock i
+  return $ basicBlockFunction bb
 
 instructionType :: Instruction -> Type
 instructionType i =
