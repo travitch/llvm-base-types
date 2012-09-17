@@ -501,7 +501,7 @@ functionExitInstruction f =
 functionExitInstructions :: Function -> [Instruction]
 functionExitInstructions f =
   case filter isRetInst is of
-    [] -> error $ "Function has no ret instruction: " ++ show (functionName f)
+    [] -> []
     ris -> ris
   where
     is = concatMap basicBlockInstructions (functionBody f)
