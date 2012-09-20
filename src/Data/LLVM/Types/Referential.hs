@@ -499,10 +499,7 @@ functionExitInstruction f =
 
 -- | Get all exit instructions for a Function (ret, unreachable, unwind)
 functionExitInstructions :: Function -> [Instruction]
-functionExitInstructions f =
-  case filter isRetInst is of
-    [] -> []
-    ris -> ris
+functionExitInstructions f = filter isRetInst is
   where
     is = concatMap basicBlockInstructions (functionBody f)
     isRetInst RetInst {} = True
