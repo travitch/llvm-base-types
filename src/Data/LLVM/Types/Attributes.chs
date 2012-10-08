@@ -1,10 +1,14 @@
 module Data.LLVM.Types.Attributes (
   -- * Types
   ArithFlags(..),
+  defaultArithFlags,
   CmpPredicate(..),
   CallingConvention(..),
+  defaultCallingConvention,
   LinkageType(..),
+  defaultLinkage,
   VisibilityStyle(..),
+  defaultVisibility,
   ParamAttribute(..),
   FunctionAttribute(..),
   TargetTriple(..),
@@ -12,13 +16,14 @@ module Data.LLVM.Types.Attributes (
   AtomicOperation(..),
   LandingPadClause(..),
   AtomicOrdering(..),
-  SynchronizationScope(..)
+  defaultAtomicOrdering,
+  SynchronizationScope(..),
+  defaultSynchronizationScope
   ) where
 
 #include "c++/llvm-base-enums.h"
 
 import Control.DeepSeq
-import Data.Default
 import Data.Text ( Text, unpack )
 
 {#enum LinkageType {} deriving (Eq) #}
@@ -41,8 +46,8 @@ instance Show LinkageType where
   show LTCommon = "common"
 
 instance NFData LinkageType
-instance Default LinkageType where
-  def = LTExternal
+defaultLinkage :: LinkageType
+defaultLinkage = LTExternal
 
 {#enum VisibilityStyle {} deriving (Eq) #}
 
@@ -52,8 +57,8 @@ instance Show VisibilityStyle where
   show VisibilityProtected = "protected"
 
 instance NFData VisibilityStyle
-instance Default VisibilityStyle where
-  def = VisibilityDefault
+defaultVisibility :: VisibilityStyle
+defaultVisibility = VisibilityDefault
 
 {#enum CAtomicOrdering as AtomicOrdering {} deriving (Eq) #}
 
@@ -67,8 +72,8 @@ instance Show AtomicOrdering where
   show OrderSequentiallyConsistent = "seq_cst"
 
 instance NFData AtomicOrdering
-instance Default AtomicOrdering where
-  def = OrderNotAtomic
+defaultAtomicOrdering :: AtomicOrdering
+defaultAtomicOrdering = OrderNotAtomic
 
 {#enum CSynchronizationScope as SynchronizationScope {} deriving (Eq) #}
 
@@ -77,8 +82,8 @@ instance Show SynchronizationScope where
   show SSCrossThread = ""
 
 instance NFData SynchronizationScope
-instance Default SynchronizationScope where
-  def = SSCrossThread
+defaultSynchronizationScope :: SynchronizationScope
+defaultSynchronizationScope = SSCrossThread
 
 {#enum AtomicOperation {} deriving (Eq) #}
 
@@ -114,9 +119,8 @@ instance Show ArithFlags where
   show ArithBoth = "nuw nsw"
 
 instance NFData ArithFlags
-instance Default ArithFlags where
-  def = ArithNone
-
+defaultArithFlags :: ArithFlags
+defaultArithFlags = ArithNone
 
 {#enum CmpPredicate {underscoreToCase} deriving (Eq) #}
 
@@ -170,8 +174,8 @@ instance Show CallingConvention where
   show CC_MBLAZE_SVOL = "cc 74"
 
 instance NFData CallingConvention
-instance Default CallingConvention where
-  def = CC_C
+defaultCallingConvention :: CallingConvention
+defaultCallingConvention = CC_C
 
  -- Representing Assembly
 data Assembly = Assembly !Text

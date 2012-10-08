@@ -2,12 +2,12 @@ module Data.LLVM.Internal.DataLayout (
   Endianness(..),
   AlignmentPref(..),
   DataLayout(..),
+  defaultDataLayout,
   parseDataLayout
   ) where
 
 import Data.Text ( Text )
 import qualified Data.Text as T
-import Data.Default
 import Data.List ( foldl' )
 
 data Endianness = EndianBig
@@ -32,29 +32,29 @@ data DataLayout = DataLayout { targetEndianness :: !Endianness
                              }
                 deriving (Eq, Ord, Show)
 
-instance Default DataLayout where
-  def = DataLayout { targetEndianness = EndianBig
-                   , targetStackAlignment = Nothing
-                   , targetIntegerWidths = []
-                   , targetPointerPrefs = AlignmentPref 64 64 64
-                   , targetIntegerPrefs = [ AlignmentPref 1 8 8
-                                          , AlignmentPref 8 8 8
-                                          , AlignmentPref 16 16 16
-                                          , AlignmentPref 32 32 32
-                                          , AlignmentPref 64 32 64
-                                          ]
-                   , targetVectorPrefs = [ AlignmentPref 64 64 64
-                                         , AlignmentPref 128 128 128
-                                         ]
-                   , targetFloatPrefs = [ AlignmentPref 32 32 32
-                                        , AlignmentPref 64 64 64
-                                        ]
-                   , targetAggregatePrefs = [ AlignmentPref 0 0 1 ]
-                   , targetStackObjectPrefs = [ AlignmentPref 0 64 64 ]
-                   }
+defaultDataLayout :: DataLayout
+defaultDataLayout = DataLayout { targetEndianness = EndianBig
+                               , targetStackAlignment = Nothing
+                               , targetIntegerWidths = []
+                               , targetPointerPrefs = AlignmentPref 64 64 64
+                               , targetIntegerPrefs = [ AlignmentPref 1 8 8
+                                                      , AlignmentPref 8 8 8
+                                                      , AlignmentPref 16 16 16
+                                                      , AlignmentPref 32 32 32
+                                                      , AlignmentPref 64 32 64
+                                                      ]
+                               , targetVectorPrefs = [ AlignmentPref 64 64 64
+                                                     , AlignmentPref 128 128 128
+                                                     ]
+                               , targetFloatPrefs = [ AlignmentPref 32 32 32
+                                                    , AlignmentPref 64 64 64
+                                                    ]
+                               , targetAggregatePrefs = [ AlignmentPref 0 0 1 ]
+                               , targetStackObjectPrefs = [ AlignmentPref 0 64 64 ]
+                               }
 
 parseDataLayout :: Text -> Either String DataLayout
-parseDataLayout dl = foldr parseModifier (Right def) modifiers
+parseDataLayout dl = foldr parseModifier (Right defaultDataLayout) modifiers
   where
     modifiers = T.split (=='-') dl
 
