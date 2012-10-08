@@ -16,6 +16,7 @@ module Data.LLVM.Types.Referential (
   HasFunction(..),
   BasicBlock(..),
   basicBlockInstructions,
+  basicBlockTerminatorInstruction,
   Argument(..),
   Instruction(..),
   instructionType,
@@ -34,7 +35,6 @@ module Data.LLVM.Types.Referential (
   functionExitInstruction,
   functionExitInstructions,
   instructionIsTerminator,
-  basicBlockTerminatorInstruction,
   instructionIsPhiNode,
   firstNonPhiInstruction,
   isFirstNonPhiInstruction,
@@ -486,12 +486,12 @@ functionEntryInstruction f = e1
     (e1:_) = basicBlockInstructions bb1
 
 -- | Get the ret instruction for a Function
-functionExitInstruction :: Function -> Instruction
+functionExitInstruction :: Function -> Maybe Instruction
 functionExitInstruction f =
   case filter isRetInst is of
-    [] -> error $ "Function has no ret instruction: " ++ show (functionName f)
-    [ri] -> ri
-    _ -> error $ "Function has multiple ret instructions: " ++ show (functionName f)
+    [] -> Nothing -- error $ "Function has no ret instruction: " ++ show (functionName f)
+    [ri] -> Just ri
+    _ -> Nothing -- error $ "Function has multiple ret instructions: " ++ show (functionName f)
   where
     is = concatMap basicBlockInstructions (functionBody f)
     isRetInst RetInst {} = True
@@ -751,7 +751,6 @@ instructionIsTerminator ResumeInst {} = True
 instructionIsTerminator UnreachableInst {} = True
 instructionIsTerminator InvokeInst {} = True
 instructionIsTerminator _ = False
--- Note, the new ResumeInst needs to be handled
 
 instructionFunction :: Instruction -> Maybe Function
 instructionFunction i = do
