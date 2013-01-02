@@ -147,22 +147,29 @@ instance Ord Type where
     False -> comparing hash t1 t2
 
 instance Hashable Type where
-  hash (TypeInteger i) = 1 `combine` hash i
-  hash TypeFloat = 2
-  hash TypeDouble = 3
-  hash TypeFP128 = 4
-  hash TypeX86FP80 = 5
-  hash TypePPCFP128 = 6
-  hash TypeX86MMX = 7
-  hash TypeVoid = 8
-  hash TypeLabel = 9
-  hash TypeMetadata = 10
-  hash (TypeArray i t) = 11 `combine` hash i `combine` hash t
-  hash (TypeVector i t) = 12 `combine` hash i `combine` hash t
-  hash (TypeFunction r ts v) = 13 `combine` hash r `combine` hash ts `combine` hash v
-  hash (TypePointer t as) = 15 `combine` hash t `combine` as
-  hash (TypeStruct (Just n) _ _) = 16 `combine` hash n
-  hash (TypeStruct Nothing ts p) = 17 `combine` hash ts `combine` hash p
+  hashWithSalt s (TypeInteger i) =
+    s `hashWithSalt` (1 :: Int) `hashWithSalt` i
+  hashWithSalt s TypeFloat = s `hashWithSalt` (2 :: Int)
+  hashWithSalt s TypeDouble = s `hashWithSalt` (3 :: Int)
+  hashWithSalt s TypeFP128 = s `hashWithSalt` (4 :: Int)
+  hashWithSalt s TypeX86FP80 = s `hashWithSalt` (5 :: Int)
+  hashWithSalt s TypePPCFP128 = s `hashWithSalt` (6 :: Int)
+  hashWithSalt s TypeX86MMX = s `hashWithSalt` (7 :: Int)
+  hashWithSalt s TypeVoid = s `hashWithSalt` (8 :: Int)
+  hashWithSalt s TypeLabel = s `hashWithSalt` (9 :: Int)
+  hashWithSalt s TypeMetadata = s `hashWithSalt` (10 :: Int)
+  hashWithSalt s (TypeArray i t) =
+    s `hashWithSalt` (11 :: Int) `hashWithSalt` i `hashWithSalt` t
+  hashWithSalt s (TypeVector i t) =
+    s `hashWithSalt` (12 :: Int) `hashWithSalt` i `hashWithSalt` t
+  hashWithSalt s (TypeFunction r ts v) =
+    s `hashWithSalt` (13 :: Int) `hashWithSalt` r `hashWithSalt` ts `hashWithSalt` v
+  hashWithSalt s (TypePointer t as) =
+    s `hashWithSalt` (15 :: Int) `hashWithSalt` t `hashWithSalt` as
+  hashWithSalt s (TypeStruct (Just n) _ _) =
+    s `hashWithSalt` (16 :: Int) `hashWithSalt` n
+  hashWithSalt s (TypeStruct Nothing ts p) =
+    s `hashWithSalt` (17 :: Int) `hashWithSalt` ts `hashWithSalt` p
 
 instance Eq Type where
   TypeInteger i1 == TypeInteger i2 = i1 == i2
@@ -349,7 +356,7 @@ instance Ord Metadata where
   compare = comparing metaValueUniqueId
 
 instance Hashable Metadata where
-  hash = fromIntegral . metaValueUniqueId
+  hashWithSalt s = hashWithSalt s . metaValueUniqueId
 
 -- | A wrapper around 'ValueT' values that tracks the 'Type', name,
 -- and attached metadata. valueName is mostly informational at this
@@ -438,7 +445,7 @@ instance Ord Value where
   v1 `compare` v2 = comparing valueUniqueId v1 v2
 
 instance Hashable Value where
-  hash = fromIntegral . valueUniqueId
+  hashWithSalt s = hashWithSalt s . valueUniqueId
 
 class HasFunction a where
   getFunction :: a -> Function
@@ -544,7 +551,7 @@ instance Eq Function where
   f1 == f2 = functionUniqueId f1 == functionUniqueId f2
 
 instance Hashable Function where
-  hash = fromIntegral . functionUniqueId
+  hashWithSalt s = hashWithSalt s . functionUniqueId
 
 instance Ord Function where
   f1 `compare` f2 = comparing functionUniqueId f1 f2
@@ -565,7 +572,7 @@ instance IsValue Argument where
   valueUniqueId = argumentUniqueId
 
 instance Hashable Argument where
-  hash = fromIntegral . argumentUniqueId
+  hashWithSalt s = hashWithSalt s . argumentUniqueId
 
 instance Eq Argument where
   a1 == a2 = argumentUniqueId a1 == argumentUniqueId a2
@@ -624,7 +631,7 @@ instance IsValue BasicBlock where
   valueUniqueId = basicBlockUniqueId
 
 instance Hashable BasicBlock where
-  hash = fromIntegral . basicBlockUniqueId
+  hashWithSalt s = hashWithSalt s . basicBlockUniqueId
 
 instance Eq BasicBlock where
   f1 == f2 = basicBlockUniqueId f1 == basicBlockUniqueId f2
@@ -656,7 +663,7 @@ instance Eq GlobalVariable where
   f1 == f2 = globalVariableUniqueId f1 == globalVariableUniqueId f2
 
 instance Hashable GlobalVariable where
-  hash = fromIntegral . globalVariableUniqueId
+  hashWithSalt s = hashWithSalt s . globalVariableUniqueId
 
 instance Ord GlobalVariable where
   g1 `compare` g2 = comparing globalVariableUniqueId g1 g2
@@ -680,7 +687,7 @@ instance Eq GlobalAlias where
   f1 == f2 = globalAliasUniqueId f1 == globalAliasUniqueId f2
 
 instance Hashable GlobalAlias where
-  hash = fromIntegral . globalAliasUniqueId
+  hashWithSalt s = hashWithSalt s . globalAliasUniqueId
 
 instance Ord GlobalAlias where
   g1 `compare` g2 = comparing globalAliasUniqueId g1 g2
@@ -702,7 +709,7 @@ instance Eq ExternalValue where
   f1 == f2 = externalValueUniqueId f1 == externalValueUniqueId f2
 
 instance Hashable ExternalValue where
-  hash = fromIntegral . externalValueUniqueId
+  hashWithSalt s = hashWithSalt s . externalValueUniqueId
 
 instance Ord ExternalValue where
   e1 `compare` e2 = comparing externalValueUniqueId e1 e2
@@ -728,7 +735,7 @@ instance Eq ExternalFunction where
   f1 == f2 = externalFunctionUniqueId f1 == externalFunctionUniqueId f2
 
 instance Hashable ExternalFunction where
-  hash = fromIntegral . externalFunctionUniqueId
+  hashWithSalt s = hashWithSalt s . externalFunctionUniqueId
 
 instance Ord ExternalFunction where
   f1 `compare` f2 = comparing externalFunctionUniqueId f1 f2
@@ -1200,7 +1207,7 @@ instance Eq Instruction where
   i1 == i2 = instructionUniqueId i1 == instructionUniqueId i2
 
 instance Hashable Instruction where
-  hash = fromIntegral . instructionUniqueId
+  hashWithSalt s = hashWithSalt s . instructionUniqueId
 
 instance Ord Instruction where
   i1 `compare` i2 = comparing instructionUniqueId i1 i2
@@ -1264,7 +1271,7 @@ instance Eq Constant where
   c1 == c2 = constantUniqueId c1 == constantUniqueId c2
 
 instance Hashable Constant where
-  hash = fromIntegral . constantUniqueId
+  hashWithSalt s = hashWithSalt s . constantUniqueId
 
 instance Ord Constant where
   c1 `compare` c2 = comparing constantUniqueId c1 c2

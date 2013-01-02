@@ -35,8 +35,8 @@ instance Show Identifier where
   show MetaIdentifier { _identifierContent = t } = '!' : unpack t
 
 instance Hashable Identifier where
-  hash (AnonymousLocalIdentifier n) = hash n
-  hash i = _identifierHash i
+  hashWithSalt s (AnonymousLocalIdentifier n) = s `hashWithSalt` n
+  hashWithSalt s i = s `hashWithSalt` _identifierHash i
 
 instance NFData Identifier where
   rnf AnonymousLocalIdentifier {} = ()
