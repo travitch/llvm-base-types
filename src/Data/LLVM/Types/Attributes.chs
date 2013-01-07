@@ -26,6 +26,8 @@ module Data.LLVM.Types.Attributes (
 import Control.DeepSeq
 import Data.Text ( Text, unpack )
 
+-- | Types of symbol linkage.  Note that LTLinkerPrivateWeakDefAuto is
+-- only available in llvm < 3.2.
 {#enum LinkageType {} deriving (Eq) #}
 instance Show LinkageType where
   show LTExternal = ""
