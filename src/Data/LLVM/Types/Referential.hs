@@ -1,49 +1,57 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE TypeSynonymInstances, OverloadedStrings #-}
 module Data.LLVM.Types.Referential (
-  -- * Types
+  -- * Basic Types
   Type(..),
+  structTypeToName,
+  structBaseName,
+  stripPointerTypes,
   UniqueId,
   IsValue(..),
   Value(..),
   toValue,
+  valueContent',
+  stripBitcasts,
+  -- * Functions
   Function(..),
+  HasFunction(..),
   functionBody,
   functionInstructions,
   functionReturnType,
   functionExitBlock,
   functionExitBlocks,
-  HasFunction(..),
-  BasicBlock(..),
-  basicBlockInstructions,
-  basicBlockTerminatorInstruction,
-  Argument(..),
-  Instruction(..),
-  instructionType,
-  instructionName,
-  instructionFunction,
-  GlobalVariable(..),
-  GlobalAlias(..),
-  ExternalValue(..),
-  ExternalFunction(..),
-  Constant(..),
-  Metadata(..),
-  -- * Extra accessors
-  externalIsIntrinsic,
   functionIsVararg,
   functionEntryInstruction,
   functionExitInstruction,
   functionExitInstructions,
-  instructionIsTerminator,
-  instructionIsPhiNode,
+  -- * External Functions
+  ExternalFunction(..),
+  externalIsIntrinsic,
+  externalFunctionParameterTypes,
+  -- * Arguments
+  Argument(..),
+  -- * Basic Blocks
+  BasicBlock(..),
+  basicBlockInstructions,
+  basicBlockTerminatorInstruction,
   firstNonPhiInstruction,
   isFirstNonPhiInstruction,
   basicBlockSplitPhiNodes,
-  valueContent',
-  stripBitcasts,
-  structTypeToName,
-  structBaseName,
-  stripPointerTypes,
+  -- * Instructions
+  Instruction(..),
+  instructionType,
+  instructionName,
+  instructionFunction,
+  instructionIsTerminator,
+  instructionIsPhiNode,
+  -- * Globals
+  GlobalVariable(..),
+  GlobalAlias(..),
+  ExternalValue(..),
+  -- * Constants
+  Constant(..),
+  -- * Metadata
+  Metadata(..),
   -- * Debug info
   llvmDebugVersion
   ) where
@@ -739,6 +747,11 @@ instance Hashable ExternalFunction where
 
 instance Ord ExternalFunction where
   f1 `compare` f2 = comparing externalFunctionUniqueId f1 f2
+
+externalFunctionParameterTypes :: ExternalFunction -> [Type]
+externalFunctionParameterTypes ef = ts
+  where
+    TypeFunction _ ts _ = externalFunctionType ef
 
 externalIsIntrinsic :: ExternalFunction -> Bool
 externalIsIntrinsic =
