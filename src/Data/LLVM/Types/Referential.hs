@@ -30,6 +30,7 @@ module Data.LLVM.Types.Referential (
   externalFunctionParameterTypes,
   -- * Arguments
   Argument(..),
+  argumentIndex,
   -- * Basic Blocks
   BasicBlock(..),
   basicBlockInstructions,
@@ -59,6 +60,7 @@ module Data.LLVM.Types.Referential (
 import Control.DeepSeq
 import Data.Hashable
 import Data.Int
+import Data.List ( elemIndex )
 import Data.Ord ( comparing )
 import Data.Text ( Text, isPrefixOf )
 import Data.Vector ( Vector )
@@ -587,6 +589,14 @@ instance Eq Argument where
 
 instance Ord Argument where
   a1 `compare` a2 = comparing argumentUniqueId a1 a2
+
+-- | Find the zero-based index into the argument list of the 'Function'
+-- containing this 'Argument'.
+argumentIndex :: Argument -> Int
+argumentIndex a = ix
+  where
+    f = argumentFunction a
+    Just ix = elemIndex a (functionParameters f)
 
 data BasicBlock = BasicBlock { basicBlockName :: !Identifier
                              , basicBlockMetadata :: [Metadata]
