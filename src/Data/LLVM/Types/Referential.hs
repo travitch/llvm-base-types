@@ -12,6 +12,7 @@ module Data.LLVM.Types.Referential (
   toValue,
   valueContent',
   stripBitcasts,
+  FromValue(..),
   -- * Functions
   Function(..),
   HasFunction(..),
@@ -442,6 +443,64 @@ instance IsValue Value where
 
 toValue :: (IsValue a) => a -> Value
 toValue = valueContent
+
+class FromValue a where
+  fromValue :: (Monad m) => Value -> m a
+
+instance FromValue Constant where
+  fromValue v =
+    case valueContent' v of
+      ConstantC c -> return c
+      _ -> fail "Not a Constant"
+
+instance FromValue GlobalAlias where
+  fromValue v =
+    case valueContent' v of
+      GlobalAliasC g -> return g
+      _ -> fail "Not a GlobalAlias"
+
+instance FromValue ExternalValue where
+  fromValue v =
+    case valueContent' v of
+      ExternalValueC e -> return e
+      _ -> fail "Not an ExternalValue"
+
+instance FromValue GlobalVariable where
+  fromValue v =
+    case valueContent' v of
+      GlobalVariableC g -> return g
+      _ -> fail "Not a GlobalVariable"
+
+instance FromValue Argument where
+  fromValue v =
+    case valueContent' v of
+      ArgumentC a -> return a
+      _ -> fail "Not an Argument"
+
+instance FromValue Function where
+  fromValue v =
+    case valueContent' v of
+      FunctionC f -> return f
+      _ -> fail "Not a Function"
+
+instance FromValue Instruction where
+  fromValue v =
+    case valueContent' v of
+      InstructionC i -> return i
+      _ -> fail "Not an Instruction"
+
+instance FromValue ExternalFunction where
+  fromValue v =
+    case valueContent' v of
+      ExternalFunctionC f -> return f
+      _ -> fail "Not an ExternalFunction"
+
+instance FromValue BasicBlock where
+  fromValue v =
+    case valueContent' v of
+      BasicBlockC b -> return b
+      _ -> fail "Not a BasicBlock"
+
 
 instance Eq Value where
   (==) = valueEq
