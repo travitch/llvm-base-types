@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# LANGUAGE TypeSynonymInstances, OverloadedStrings #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleContexts, OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 module Data.LLVM.Types.Referential (
   -- * Basic Types
   Type(..),
@@ -59,11 +60,14 @@ module Data.LLVM.Types.Referential (
   ) where
 
 import Control.DeepSeq
+import Control.Exception
+import Control.Failure
 import Data.Hashable
 import Data.Int
 import Data.List ( elemIndex )
 import Data.Ord ( comparing )
 import Data.Text ( Text, isPrefixOf )
+import Data.Typeable
 import Data.Vector ( Vector )
 import qualified Data.Vector as V
 import Text.Printf
@@ -444,62 +448,67 @@ instance IsValue Value where
 toValue :: (IsValue a) => a -> Value
 toValue = valueContent
 
+data FailedCast = FailedCast String
+                deriving (Typeable, Show)
+
+instance Exception FailedCast
+
 class FromValue a where
-  fromValue :: (Monad m) => Value -> m a
+  fromValue :: (Failure FailedCast f) => Value -> f a
 
 instance FromValue Constant where
   fromValue v =
     case valueContent' v of
       ConstantC c -> return c
-      _ -> fail "Not a Constant"
+      _ -> failure $! FailedCast "Constant"
 
 instance FromValue GlobalAlias where
   fromValue v =
     case valueContent' v of
       GlobalAliasC g -> return g
-      _ -> fail "Not a GlobalAlias"
+      _ -> failure $! FailedCast "GlobalAlias"
 
 instance FromValue ExternalValue where
   fromValue v =
     case valueContent' v of
       ExternalValueC e -> return e
-      _ -> fail "Not an ExternalValue"
+      _ -> failure $! FailedCast "ExternalValue"
 
 instance FromValue GlobalVariable where
   fromValue v =
     case valueContent' v of
       GlobalVariableC g -> return g
-      _ -> fail "Not a GlobalVariable"
+      _ -> failure $! FailedCast "GlobalVariable"
 
 instance FromValue Argument where
   fromValue v =
     case valueContent' v of
       ArgumentC a -> return a
-      _ -> fail "Not an Argument"
+      _ -> failure $! FailedCast "Argument"
 
 instance FromValue Function where
   fromValue v =
     case valueContent' v of
       FunctionC f -> return f
-      _ -> fail "Not a Function"
+      _ -> failure $! FailedCast "Function"
 
 instance FromValue Instruction where
   fromValue v =
     case valueContent' v of
       InstructionC i -> return i
-      _ -> fail "Not an Instruction"
+      _ -> failure $! FailedCast "Instruction"
 
 instance FromValue ExternalFunction where
   fromValue v =
     case valueContent' v of
       ExternalFunctionC f -> return f
-      _ -> fail "Not an ExternalFunction"
+      _ -> failure $! FailedCast "ExternalFunction"
 
 instance FromValue BasicBlock where
   fromValue v =
     case valueContent' v of
       BasicBlockC b -> return b
-      _ -> fail "Not a BasicBlock"
+      _ -> failure $! FailedCast "BasicBlock"
 
 
 instance Eq Value where
