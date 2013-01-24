@@ -453,6 +453,13 @@ data FailedCast = FailedCast String
 
 instance Exception FailedCast
 
+-- | Safely convert a 'Value' to a concrete type (like Argument or
+-- Instruction).  This is most useful in pure Monads that handle
+-- failure, like Maybe, MaybeT, and Either.  If the requested
+-- conversion is not possible, the normal failure semantics are
+-- provided.  Example:
+--
+-- >
 class FromValue a where
   fromValue :: (Failure FailedCast f) => Value -> f a
 
