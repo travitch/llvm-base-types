@@ -21,7 +21,8 @@ library
   default-language: Haskell2010
   build-depends: base > 3 && < 5, dwarf, deepseq, vector, failure,
                  hashable >= 1.1.2.0, text, mtl == 2.*, regex-tdfa,
-                 unordered-containers, containers, graphviz >= 2999.12.0.3
+                 unordered-containers, containers, graphviz >= 2999.12.0.3,
+                 pretty, GenericPretty > 1
   exposed-modules: Data.LLVM.Types,
                    Data.LLVM.Internal.Paths
   other-modules: Paths_llvm_base_types,

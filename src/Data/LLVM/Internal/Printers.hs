@@ -14,6 +14,8 @@ import Data.Monoid
 import Data.Text ( Text, unpack )
 import Data.Text.Lazy ( toStrict )
 import Data.Text.Lazy.Builder
+import qualified Text.PrettyPrint as PP
+import Text.PrettyPrint.GenericPretty
 
 import Data.LLVM.Types.Attributes
 import Data.LLVM.Types.Identifiers
@@ -879,6 +881,10 @@ instance Show Function where
 
 instance Show GlobalVariable where
   show = builderToString . printValue . toValue
+
+instance Out Type where
+  docPrec _ = PP.text . show
+  doc = PP.text . show
 
 builderToString :: Builder -> String
 builderToString = unpack . toStrict . toLazyText
