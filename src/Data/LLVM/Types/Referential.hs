@@ -137,7 +137,7 @@ structBaseName s =
   in pfx
   where
     pattern :: String
-    pattern = "([[:alpha:]]+\\.[[:alnum:]_]+)(\\.[[:digit:]]+)*"
+    pattern = "([[:alpha:]]+\\.[:<> [:alnum:]_]+)(\\.[[:digit:]]+)*"
     m :: (String, String, String, [String])
     m = s =~ pattern
     (_, _, _, captures) = m
