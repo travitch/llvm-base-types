@@ -886,6 +886,10 @@ instance Out Type where
   docPrec _ = PP.text . show
   doc = PP.text . show
 
+instance Out Value where
+  docPrec _ = PP.text . show
+  doc = PP.text . show
+
 builderToString :: Builder -> String
 builderToString = unpack . toStrict . toLazyText
 
