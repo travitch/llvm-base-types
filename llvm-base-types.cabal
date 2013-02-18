@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                llvm-base-types
-version:             0.1.0.0
+version:             0.1.1.0
 synopsis:            The base types for a mostly pure Haskell LLVM analysis library
 -- description:
 license:             BSD3
@@ -19,10 +19,14 @@ extra-source-files: src/c++/llvm-base-enums.h
 
 library
   default-language: Haskell2010
-  build-depends: base > 3 && < 5, dwarf, deepseq, vector, failure,
-                 hashable >= 1.1.2.0, text, mtl == 2.*, regex-tdfa,
-                 unordered-containers, containers, graphviz >= 2999.12.0.3,
-                 pretty, GenericPretty > 1
+  build-depends: base == 4.*,
+                 hashable >= 1.1.2.0,
+                 mtl >= 2.0,
+                 graphviz >= 2999.12.0.3,
+                 GenericPretty > 1,
+                 dwarf, deepseq, vector, failure,
+                 text, regex-tdfa, pretty,
+                 unordered-containers, containers
   exposed-modules: Data.LLVM.Types,
                    Data.LLVM.Internal.Paths
   other-modules: Paths_llvm_base_types,

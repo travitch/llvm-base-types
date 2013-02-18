@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE TypeSynonymInstances, FlexibleContexts, OverloadedStrings #-}
 {-# LANGUAGE DeriveDataTypeable, GADTs, EmptyDataDecls, RankNTypes #-}
+{-# LANGUAGE DataKinds, KindSignatures, InstanceSigs #-}
 module Data.LLVM.Types.Referential (
   -- * Basic Types
   Type(..),
@@ -41,22 +42,17 @@ module Data.LLVM.Types.Referential (
   isFirstNonPhiInstruction,
   basicBlockSplitPhiNodes,
   -- * Instructions
-  Phi,
-  Terminator,
-  BinaryOp,
-  VectorOp,
-  AggregateOp,
-  MemoryOp,
-  ConversionOp,
-  CompareOp,
-  OtherOp,
-  CallLike,
-  ConstOp,
+  InstrKind(..),
+  InstrTag(..),
   Instruction(..),
   instructionType,
   instructionName,
+  instructionBasicBlock,
+  instructionMetadata,
+  instructionUniqueId,
   instructionFunction,
   instructionIsTerminator,
+  instructionIsEntry,
   instructionIsPhiNode,
   -- * Globals
   GlobalVariable(..),
@@ -83,6 +79,7 @@ import Data.Vector ( Vector )
 import qualified Data.Vector as V
 import Text.Printf
 import Text.Regex.TDFA
+import Unsafe.Coerce ( unsafeCoerce )
 
 import Data.LLVM.Types.Attributes
 import Data.LLVM.Types.Dwarf
@@ -95,7 +92,7 @@ llvmDebugVersion = 524288
 
 -- This isn't very honest, but Values are part of Modules and
 -- are fully evaluated before the module is constructed.
-instance NFData Instruction where
+instance NFData (Instruction k t) where
   rnf _ = ()
 instance NFData Value where
   rnf _ = ()
@@ -399,7 +396,7 @@ data Value = FunctionC Function
            | GlobalAliasC GlobalAlias
            | ExternalValueC ExternalValue
            | ExternalFunctionC ExternalFunction
-           | InstructionC (forall k t . Instruction k t)
+           | InstructionC (forall (k :: InstrKind) (t :: InstrTag) . Instruction k t)
            | ConstantC Constant
 
 class IsValue a where
@@ -510,7 +507,7 @@ instance FromValue Function where
       FunctionC f -> return f
       _ -> failure $! FailedCast "Function"
 
-instance FromValue Instruction where
+instance FromValue (Instruction k t) where
   fromValue v =
     case valueContent' v of
       InstructionC i -> return i
@@ -579,17 +576,17 @@ functionBody :: Function -> [BasicBlock]
 functionBody = V.toList . functionBodyVector
 
 {-# INLINABLE functionInstructions #-}
-functionInstructions :: Function -> [Instruction]
+functionInstructions :: Function -> [Instruction k t]
 functionInstructions = concatMap basicBlockInstructions . functionBody
 
-functionEntryInstruction :: Function -> Instruction
+functionEntryInstruction :: Function -> Instruction k t
 functionEntryInstruction f = e1
   where
     (bb1:_) = functionBody f
     (e1:_) = basicBlockInstructions bb1
 
 -- | Get the ret instruction for a Function
-functionExitInstruction :: Function -> Maybe Instruction
+functionExitInstruction :: Function -> Maybe (Instruction k t)
 functionExitInstruction f =
   case filter isRetInst is of
     [] -> Nothing -- error $ "Function has no ret instruction: " ++ show (functionName f)
@@ -601,7 +598,7 @@ functionExitInstruction f =
     isRetInst _ = False
 
 -- | Get all exit instructions for a Function (ret, unreachable, unwind)
-functionExitInstructions :: Function -> [Instruction]
+functionExitInstructions :: Function -> [Instruction k t]
 functionExitInstructions f = filter isRetInst is
   where
     is = concatMap basicBlockInstructions (functionBody f)
@@ -694,7 +691,7 @@ data BasicBlock =
              }
 
 {-# INLINABLE basicBlockInstructions #-}
-basicBlockInstructions :: forall k t . BasicBlock -> [Instruction k t]
+basicBlockInstructions :: BasicBlock -> [Instruction k t]
 basicBlockInstructions = V.toList . basicBlockInstructionVector
 
 -- {-# INLINABLE basicBlockTerminatorInstruction #-}
@@ -705,29 +702,29 @@ basicBlockInstructions = V.toList . basicBlockInstructionVector
 -- | Get the first instruction in a basic block that is not a Phi
 -- node.  This is total because basic blocks cannot be empty and must
 -- end in a terminator instruction (Phi nodes are not terminators).
-firstNonPhiInstruction :: forall k t . BasicBlock -> Instruction k t
+firstNonPhiInstruction :: BasicBlock -> Instruction k t
 firstNonPhiInstruction bb = i
   where
     i : _ = dropWhile instructionIsPhiNode (basicBlockInstructions bb)
 
 {-# INLINABLE instructionIsPhiNode #-}
 -- | Predicate to test an instruction to see if it is a phi node
-instructionIsPhiNode :: forall k t . Instruction k t -> Bool
+instructionIsPhiNode :: Instruction k t -> Bool
 instructionIsPhiNode v = case v of
   PhiNode {} -> True
   _ -> False
 
 {-# INLINABLE isFirstNonPhiInstruction #-}
 -- | Determine if @i@ is the first non-phi instruction in its block.
-isFirstNonPhiInstruction :: Instruction -> Bool
+isFirstNonPhiInstruction :: Instruction k t -> Bool
 isFirstNonPhiInstruction i = i == firstNonPhiInstruction bb
   where
     Just bb = instructionBasicBlock i
 
 {-# INLINABLE basicBlockSplitPhiNodes #-}
 -- | Split a block's instructions into phi nodes and the rest
-basicBlockSplitPhiNodes :: BasicBlock -> ([Instruction], [Instruction])
-basicBlockSplitPhiNodes = span instructionIsPhiNode . basicBlockInstructions
+basicBlockSplitPhiNodes :: BasicBlock -> ([Instruction Phi t], [Instruction k t])
+basicBlockSplitPhiNodes = undefined -- span instructionIsPhiNode . basicBlockInstructions
 
 instance IsValue BasicBlock where
   valueType _ = TypeLabel
@@ -858,8 +855,10 @@ externalIsIntrinsic =
 
 {-# INLINABLE instructionIsTerminator #-}
 -- | Determine if an instruction is a Terminator instruction (i.e.,
--- ends a BasicBlock)
-instructionIsTerminator :: Instruction ex -> Bool
+-- ends a BasicBlock).  Note that this takes generic instructions; if
+-- you already have an @Instruction Terminator t@ then you don't need
+-- this function.
+instructionIsTerminator :: Instruction k t -> Bool
 instructionIsTerminator RetInst {} = True
 instructionIsTerminator UnconditionalBranchInst {} = True
 instructionIsTerminator BranchInst {} = True
@@ -870,12 +869,18 @@ instructionIsTerminator UnreachableInst {} = True
 instructionIsTerminator InvokeInst {} = True
 instructionIsTerminator _ = False
 
-instructionFunction :: Instruction e x -> Maybe Function
+instructionIsEntry :: Instruction k t -> Bool
+instructionIsEntry i = i == ei
+  where
+    ei = V.unsafeHead $ basicBlockInstructionVector bb
+    Just bb = instructionBasicBlock i
+
+instructionFunction :: Instruction k t -> Maybe Function
 instructionFunction i = do
   bb <- instructionBasicBlock i
   return $ basicBlockFunction bb
 
-instructionType :: Instruction e x -> Type
+instructionType :: Instruction k t -> Type
 instructionType i =
   case i of
     RetInst {} -> TypeVoid
@@ -889,9 +894,209 @@ instructionType i =
     FenceInst {} -> TypeVoid
     AtomicCmpXchgInst {} -> TypeVoid
     AtomicRMWInst {} -> TypeVoid
-    _ -> _instructionType i
+    ExtractElementInst { extractElementType = t } -> t
+    InsertElementInst { insertElementType = t } -> t
+    ShuffleVectorInst { shuffleVectorType = t } -> t
+    ExtractValueInst { extractValueType = t } -> t
+    InsertValueInst { insertValueType = t } -> t
+    AllocaInst { allocaType = t } -> t
+    LoadInst { loadType = t } -> t
+    AddInst { binaryType = t } -> t
+    SubInst { binaryType = t } -> t
+    MulInst { binaryType = t } -> t
+    DivInst { binaryType = t } -> t
+    RemInst { binaryType = t } -> t
+    ShlInst { binaryType = t } -> t
+    LshrInst { binaryType = t } -> t
+    AshrInst { binaryType = t } -> t
+    AndInst { binaryType = t } -> t
+    OrInst { binaryType = t } -> t
+    XorInst { binaryType = t } -> t
+    TruncInst { castType = t } -> t
+    ZExtInst { castType = t } -> t
+    SExtInst { castType = t } -> t
+    FPTruncInst { castType = t } -> t
+    FPExtInst { castType = t } -> t
+    FPToSIInst { castType = t } -> t
+    FPToUIInst { castType = t } -> t
+    SIToFPInst { castType = t } -> t
+    UIToFPInst { castType = t } -> t
+    PtrToIntInst { castType = t } -> t
+    IntToPtrInst { castType = t } -> t
+    BitcastInst { castType = t } -> t
+    ICmpInst { cmpType = t } -> t
+    FCmpInst { cmpType = t } -> t
+    SelectInst { selectType = t } -> t
+    CallInst { callType = t } -> t
+    GetElementPtrInst { getElementPtrType = t } -> t
+    InvokeInst { invokeType = t } -> t
+    VaArgInst { vaArgType = t } -> t
+    LandingPadInst { landingPadType = t } -> t
+    PhiNode { phiType = t } -> t
 
-instructionName :: Instruction e x -> Maybe Identifier
+instructionUniqueId :: Instruction k t -> UniqueId
+instructionUniqueId i =
+  case i of
+    RetInst { retInstUniqueId = t } -> t
+    UnconditionalBranchInst { branchUniqueId = t } -> t
+    BranchInst { branchUniqueId = t } -> t
+    SwitchInst { switchUniqueId = t } -> t
+    IndirectBranchInst { indirectBranchUniqueId = t } -> t
+    ResumeInst { resumeUniqueId = t } -> t
+    UnreachableInst { unreachableUniqueId = t } -> t
+    StoreInst { storeUniqueId = t } -> t
+    FenceInst { fenceUniqueId = t } -> t
+    AtomicCmpXchgInst { atomicCmpXchgUniqueId = t } -> t
+    AtomicRMWInst { atomicRMWUniqueId = t } -> t
+    ExtractElementInst { extractElementUniqueId = t } -> t
+    InsertElementInst { insertElementUniqueId = t } -> t
+    ShuffleVectorInst { shuffleVectorUniqueId = t } -> t
+    ExtractValueInst { extractValueUniqueId = t } -> t
+    InsertValueInst { insertValueUniqueId = t } -> t
+    AllocaInst { allocaUniqueId = t } -> t
+    LoadInst { loadUniqueId = t } -> t
+    AddInst { binaryUniqueId = t } -> t
+    SubInst { binaryUniqueId = t } -> t
+    MulInst { binaryUniqueId = t } -> t
+    DivInst { binaryUniqueId = t } -> t
+    RemInst { binaryUniqueId = t } -> t
+    ShlInst { binaryUniqueId = t } -> t
+    LshrInst { binaryUniqueId = t } -> t
+    AshrInst { binaryUniqueId = t } -> t
+    AndInst { binaryUniqueId = t } -> t
+    OrInst { binaryUniqueId = t } -> t
+    XorInst { binaryUniqueId = t } -> t
+    TruncInst { castUniqueId = t } -> t
+    ZExtInst { castUniqueId = t } -> t
+    SExtInst { castUniqueId = t } -> t
+    FPTruncInst { castUniqueId = t } -> t
+    FPExtInst { castUniqueId = t } -> t
+    FPToSIInst { castUniqueId = t } -> t
+    FPToUIInst { castUniqueId = t } -> t
+    SIToFPInst { castUniqueId = t } -> t
+    UIToFPInst { castUniqueId = t } -> t
+    PtrToIntInst { castUniqueId = t } -> t
+    IntToPtrInst { castUniqueId = t } -> t
+    BitcastInst { castUniqueId = t } -> t
+    ICmpInst { cmpUniqueId = t } -> t
+    FCmpInst { cmpUniqueId = t } -> t
+    SelectInst { selectUniqueId = t } -> t
+    CallInst { callUniqueId = t } -> t
+    GetElementPtrInst { getElementPtrUniqueId = t } -> t
+    InvokeInst { invokeUniqueId = t } -> t
+    VaArgInst { vaArgUniqueId = t } -> t
+    LandingPadInst { landingPadUniqueId = t } -> t
+    PhiNode { phiUniqueId = t } -> t
+
+instructionBasicBlock :: Instruction k t -> Maybe BasicBlock
+instructionBasicBlock i =
+  case i of
+    RetInst { retInstBasicBlock = t } -> t
+    UnconditionalBranchInst { branchBasicBlock = t } -> t
+    BranchInst { branchBasicBlock = t } -> t
+    SwitchInst { switchBasicBlock = t } -> t
+    IndirectBranchInst { indirectBranchBasicBlock = t } -> t
+    ResumeInst { resumeBasicBlock = t } -> t
+    UnreachableInst { unreachableBasicBlock = t } -> t
+    StoreInst { storeBasicBlock = t } -> t
+    FenceInst { fenceBasicBlock = t } -> t
+    AtomicCmpXchgInst { atomicCmpXchgBasicBlock = t } -> t
+    AtomicRMWInst { atomicRMWBasicBlock = t } -> t
+    ExtractElementInst { extractElementBasicBlock = t } -> t
+    InsertElementInst { insertElementBasicBlock = t } -> t
+    ShuffleVectorInst { shuffleVectorBasicBlock = t } -> t
+    ExtractValueInst { extractValueBasicBlock = t } -> t
+    InsertValueInst { insertValueBasicBlock = t } -> t
+    AllocaInst { allocaBasicBlock = t } -> t
+    LoadInst { loadBasicBlock = t } -> t
+    AddInst { binaryBasicBlock = t } -> t
+    SubInst { binaryBasicBlock = t } -> t
+    MulInst { binaryBasicBlock = t } -> t
+    DivInst { binaryBasicBlock = t } -> t
+    RemInst { binaryBasicBlock = t } -> t
+    ShlInst { binaryBasicBlock = t } -> t
+    LshrInst { binaryBasicBlock = t } -> t
+    AshrInst { binaryBasicBlock = t } -> t
+    AndInst { binaryBasicBlock = t } -> t
+    OrInst { binaryBasicBlock = t } -> t
+    XorInst { binaryBasicBlock = t } -> t
+    TruncInst { castBasicBlock = t } -> t
+    ZExtInst { castBasicBlock = t } -> t
+    SExtInst { castBasicBlock = t } -> t
+    FPTruncInst { castBasicBlock = t } -> t
+    FPExtInst { castBasicBlock = t } -> t
+    FPToSIInst { castBasicBlock = t } -> t
+    FPToUIInst { castBasicBlock = t } -> t
+    SIToFPInst { castBasicBlock = t } -> t
+    UIToFPInst { castBasicBlock = t } -> t
+    PtrToIntInst { castBasicBlock = t } -> t
+    IntToPtrInst { castBasicBlock = t } -> t
+    BitcastInst { castBasicBlock = t } -> t
+    ICmpInst { cmpBasicBlock = t } -> t
+    FCmpInst { cmpBasicBlock = t } -> t
+    SelectInst { selectBasicBlock = t } -> t
+    CallInst { callBasicBlock = t } -> t
+    GetElementPtrInst { getElementPtrBasicBlock = t } -> t
+    InvokeInst { invokeBasicBlock = t } -> t
+    VaArgInst { vaArgBasicBlock = t } -> t
+    LandingPadInst { landingPadBasicBlock = t } -> t
+    PhiNode { phiBasicBlock = t } -> t
+
+instructionMetadata :: Instruction k t -> [Metadata]
+instructionMetadata i =
+  case i of
+    RetInst { retInstMetadata = t } -> t
+    UnconditionalBranchInst { branchMetadata = t } -> t
+    BranchInst { branchMetadata = t } -> t
+    SwitchInst { switchMetadata = t } -> t
+    IndirectBranchInst { indirectBranchMetadata = t } -> t
+    ResumeInst { resumeMetadata = t } -> t
+    UnreachableInst { unreachableMetadata = t } -> t
+    StoreInst { storeMetadata = t } -> t
+    FenceInst { fenceMetadata = t } -> t
+    AtomicCmpXchgInst { atomicCmpXchgMetadata = t } -> t
+    AtomicRMWInst { atomicRMWMetadata = t } -> t
+    ExtractElementInst { extractElementMetadata = t } -> t
+    InsertElementInst { insertElementMetadata = t } -> t
+    ShuffleVectorInst { shuffleVectorMetadata = t } -> t
+    ExtractValueInst { extractValueMetadata = t } -> t
+    InsertValueInst { insertValueMetadata = t } -> t
+    AllocaInst { allocaMetadata = t } -> t
+    LoadInst { loadMetadata = t } -> t
+    AddInst { binaryMetadata = t } -> t
+    SubInst { binaryMetadata = t } -> t
+    MulInst { binaryMetadata = t } -> t
+    DivInst { binaryMetadata = t } -> t
+    RemInst { binaryMetadata = t } -> t
+    ShlInst { binaryMetadata = t } -> t
+    LshrInst { binaryMetadata = t } -> t
+    AshrInst { binaryMetadata = t } -> t
+    AndInst { binaryMetadata = t } -> t
+    OrInst { binaryMetadata = t } -> t
+    XorInst { binaryMetadata = t } -> t
+    TruncInst { castMetadata = t } -> t
+    ZExtInst { castMetadata = t } -> t
+    SExtInst { castMetadata = t } -> t
+    FPTruncInst { castMetadata = t } -> t
+    FPExtInst { castMetadata = t } -> t
+    FPToSIInst { castMetadata = t } -> t
+    FPToUIInst { castMetadata = t } -> t
+    SIToFPInst { castMetadata = t } -> t
+    UIToFPInst { castMetadata = t } -> t
+    PtrToIntInst { castMetadata = t } -> t
+    IntToPtrInst { castMetadata = t } -> t
+    BitcastInst { castMetadata = t } -> t
+    ICmpInst { cmpMetadata = t } -> t
+    FCmpInst { cmpMetadata = t } -> t
+    SelectInst { selectMetadata = t } -> t
+    CallInst { callMetadata = t } -> t
+    GetElementPtrInst { getElementPtrMetadata = t } -> t
+    InvokeInst { invokeMetadata = t } -> t
+    VaArgInst { vaArgMetadata = t } -> t
+    LandingPadInst { landingPadMetadata = t } -> t
+    PhiNode { phiMetadata = t } -> t
+
+instructionName :: Instruction k t -> Maybe Identifier
 instructionName i =
   case i of
     RetInst {} -> Nothing
@@ -905,428 +1110,469 @@ instructionName i =
     FenceInst {} -> Nothing
     AtomicCmpXchgInst {} -> Nothing
     AtomicRMWInst {} -> Nothing
-    _ -> _instructionName i
+    ExtractElementInst { extractElementName = t } -> t
+    InsertElementInst { insertElementName = t } -> t
+    ShuffleVectorInst { shuffleVectorName = t } -> t
+    ExtractValueInst { extractValueName = t } -> t
+    InsertValueInst { insertValueName = t } -> t
+    AllocaInst { allocaName = t } -> t
+    LoadInst { loadName = t } -> t
+    AddInst { binaryName = t } -> t
+    SubInst { binaryName = t } -> t
+    MulInst { binaryName = t } -> t
+    DivInst { binaryName = t } -> t
+    RemInst { binaryName = t } -> t
+    ShlInst { binaryName = t } -> t
+    LshrInst { binaryName = t } -> t
+    AshrInst { binaryName = t } -> t
+    AndInst { binaryName = t } -> t
+    OrInst { binaryName = t } -> t
+    XorInst { binaryName = t } -> t
+    TruncInst { castName = t } -> t
+    ZExtInst { castName = t } -> t
+    SExtInst { castName = t } -> t
+    FPTruncInst { castName = t } -> t
+    FPExtInst { castName = t } -> t
+    FPToSIInst { castName = t } -> t
+    FPToUIInst { castName = t } -> t
+    SIToFPInst { castName = t } -> t
+    UIToFPInst { castName = t } -> t
+    PtrToIntInst { castName = t } -> t
+    IntToPtrInst { castName = t } -> t
+    BitcastInst { castName = t } -> t
+    ICmpInst { cmpName = t } -> t
+    FCmpInst { cmpName = t } -> t
+    SelectInst { selectName = t } -> t
+    CallInst { callName = t } -> t
+    GetElementPtrInst { getElementPtrName = t } -> t
+    InvokeInst { invokeName = t } -> t
+    VaArgInst { vaArgName = t } -> t
+    LandingPadInst { landingPadName = t } -> t
+    PhiNode { phiName = t } -> t
 
-data Terminator
-data BinaryOp
-data VectorOp
-data AggregateOp
-data MemoryOp
-data ConversionOp
-data CompareOp
-data OtherOp
-data Phi
+data InstrKind = Terminator
+               | BinaryOp
+               | VectorOp
+               | AggregateOp
+               | MemoryOp
+               | ConversionOp
+               | CompareOp
+               | OtherOp
+               | Phi
 
-data CallLike
-data ConstOp
+data InstrTag = CallLike
+              | ConstLike
+              | OtherTag
 
-data Instruction k t where
-  RetInst { instructionMetadata :: [Metadata]
-          , instructionUniqueId :: UniqueId
-          , instructionBasicBlock :: Maybe BasicBlock
-          , retInstValue :: Maybe Value
-          } :: Instruction Terminator t
-  UnconditionalBranchInst { instructionMetadata :: [Metadata]
-                          , instructionUniqueId :: UniqueId
-                          , instructionBasicBlock :: Maybe BasicBlock
-                          , unconditionalBranchTarget :: BasicBlock
-                          } :: Instruction Terminator t
-  BranchInst { instructionMetadata :: [Metadata]
-             , instructionUniqueId :: UniqueId
-             , instructionBasicBlock :: Maybe BasicBlock
-             , branchCondition :: Value
-             , branchTrueTarget :: BasicBlock
-             , branchFalseTarget :: BasicBlock
-             } :: Instruction Terminator t
-  SwitchInst { instructionMetadata :: [Metadata]
-             , instructionUniqueId :: UniqueId
-             , instructionBasicBlock :: Maybe BasicBlock
-             , switchValue :: Value
-             , switchDefaultTarget :: BasicBlock
-             , switchCases :: [(Value, BasicBlock)]
-             } :: Instruction Terminator t
-  IndirectBranchInst { instructionMetadata :: [Metadata]
-                     , instructionUniqueId :: UniqueId
-                     , instructionBasicBlock :: Maybe BasicBlock
-                     , indirectBranchAddress :: Value
-                     , indirectBranchTargets :: [BasicBlock]
-                     } :: Instruction Terminator t
-                          -- ^ The target must be derived from a blockaddress constant
-                          -- The list is a list of possible target destinations
-  ResumeInst { instructionMetadata :: [Metadata]
-             , instructionUniqueId :: UniqueId
-             , instructionBasicBlock :: Maybe BasicBlock
-             , resumeException :: Value
-             } :: Instruction Terminator t
-  UnreachableInst { instructionMetadata :: [Metadata]
-                  , instructionUniqueId :: UniqueId
-                  , instructionBasicBlock :: Maybe BasicBlock
-                  } :: Instruction Terminator t
-  ExtractElementInst { _instructionType :: Type
-                     , _instructionName :: !(Maybe Identifier)
-                     , instructionMetadata :: [Metadata]
-                     , instructionUniqueId :: UniqueId
-                     , instructionBasicBlock :: Maybe BasicBlock
-                     , extractElementVector :: Value
-                     , extractElementIndex :: Value
-                     } :: Instruction VectorOp ConstOp
-  InsertElementInst { _instructionType :: Type
-                    , _instructionName :: !(Maybe Identifier)
-                    , instructionMetadata :: [Metadata]
-                    , instructionUniqueId :: UniqueId
-                    , instructionBasicBlock :: Maybe BasicBlock
-                    , insertElementVector :: Value
-                    , insertElementValue :: Value
-                    , insertElementIndex :: Value
-                    } :: Instruction VectorOp ConstOp
-  ShuffleVectorInst { _instructionType :: Type
-                    , _instructionName :: !(Maybe Identifier)
-                    , instructionMetadata :: [Metadata]
-                    , instructionUniqueId :: UniqueId
-                    , instructionBasicBlock :: Maybe BasicBlock
-                    , shuffleVectorV1 :: Value
-                    , shuffleVectorV2 :: Value
-                    , shuffleVectorMask :: Value
-                    } :: Instruction VectorOp ConstOp
-  ExtractValueInst { _instructionType :: Type
-                   , _instructionName :: !(Maybe Identifier)
-                   , instructionMetadata :: [Metadata]
-                   , instructionUniqueId :: UniqueId
-                   , instructionBasicBlock :: Maybe BasicBlock
-                   , extractValueAggregate :: Value
-                   , extractValueIndices :: [Int]
-                   } :: Instruction AggregateOp ConstOp
-  InsertValueInst { _instructionType :: Type
-                  , _instructionName :: !(Maybe Identifier)
-                  , instructionMetadata :: [Metadata]
-                  , instructionUniqueId :: UniqueId
-                  , instructionBasicBlock :: Maybe BasicBlock
-                  , insertValueAggregate :: Value
-                  , insertValueValue :: Value
-                  , insertValueIndices :: [Int]
-                  } :: Instruction AggregateOp ConstOp
-  AllocaInst { _instructionType :: Type
-             , _instructionName :: !(Maybe Identifier)
-             , instructionMetadata :: [Metadata]
-             , instructionUniqueId :: UniqueId
-             , instructionBasicBlock :: Maybe BasicBlock
-             , allocaNumElements :: Value
-             , allocaAlign :: !Int64
-             } :: Instruction MemoryOp t
-  LoadInst { _instructionType :: Type
-           , _instructionName :: !(Maybe Identifier)
-           , instructionMetadata :: [Metadata]
-           , instructionUniqueId :: UniqueId
-           , instructionBasicBlock :: Maybe BasicBlock
-           , loadIsVolatile :: !Bool
-           , loadAddress :: Value
-           , loadAlignment :: !Int64
-           } :: Instruction MemoryOp t
-  StoreInst { instructionMetadata :: [Metadata]
-            , instructionUniqueId :: UniqueId
-            , instructionBasicBlock :: Maybe BasicBlock
-            , storeIsVolatile :: !Bool
-            , storeValue :: Value
-            , storeAddress :: Value
-            , storeAlignment :: !Int64
-            , storeAddressSpace :: !Int
-            } :: Instruction MemoryOp t
-  FenceInst { instructionMetadata :: [Metadata]
-            , instructionUniqueId :: UniqueId
-            , instructionBasicBlock :: Maybe BasicBlock
-            , fenceOrdering :: !AtomicOrdering
-            , fenceScope :: !SynchronizationScope
-            } :: Instruction MemoryOp t
-  AtomicCmpXchgInst { instructionMetadata :: [Metadata]
-                    , instructionUniqueId :: UniqueId
-                    , instructionBasicBlock :: Maybe BasicBlock
-                    , atomicCmpXchgOrdering :: !AtomicOrdering
-                    , atomicCmpXchgScope :: !SynchronizationScope
-                    , atomicCmpXchgIsVolatile :: !Bool
-                    , atomicCmpXchgAddressSpace :: !Int
-                    , atomicCmpXchgPointer :: Value
-                    , atomicCmpXchgComparison :: Value
-                    , atomicCmpXchgNewValue :: Value
-                    } :: Instruction MemoryOp t
-  AtomicRMWInst { instructionMetadata :: [Metadata]
-                , instructionUniqueId :: UniqueId
-                , instructionBasicBlock :: Maybe BasicBlock
-                , atomicRMWOrdering :: !AtomicOrdering
-                , atomicRMWScope :: !SynchronizationScope
-                , atomicRMWOperation :: !AtomicOperation
-                , atomicRMWIsVolatile :: !Bool
-                , atomicRMWPointer :: Value
-                , atomicRMWValue :: Value
-                , atomicRMWAddressSpace :: !Int
-                } :: Instruction MemoryOp t
-  AddInst { _instructionType :: Type
-          , _instructionName :: !(Maybe Identifier)
-          , instructionMetadata :: [Metadata]
-          , instructionUniqueId :: UniqueId
-          , instructionBasicBlock :: Maybe BasicBlock
-          , binaryArithFlags :: !ArithFlags
-          , binaryLhs :: Value
-          , binaryRhs :: Value
-          } :: Instruction BinaryOp ConstOp
-  SubInst { _instructionType :: Type
-          , _instructionName :: !(Maybe Identifier)
-          , instructionMetadata :: [Metadata]
-          , instructionUniqueId :: UniqueId
-          , instructionBasicBlock :: Maybe BasicBlock
-          , binaryArithFlags :: !ArithFlags
-          , binaryLhs :: Value
-          , binaryRhs :: Value
-          } :: Instruction BinaryOp ConstOp
-  MulInst { _instructionType :: Type
-          , _instructionName :: !(Maybe Identifier)
-          , instructionMetadata :: [Metadata]
-          , instructionUniqueId :: UniqueId
-          , instructionBasicBlock :: Maybe BasicBlock
-          , binaryArithFlags :: !ArithFlags
-          , binaryLhs :: Value
-          , binaryRhs :: Value
-          } :: Instruction BinaryOp ConstOp
-  DivInst { _instructionType :: Type
-          , _instructionName :: !(Maybe Identifier)
-          , instructionMetadata :: [Metadata]
-          , instructionUniqueId :: UniqueId
-          , instructionBasicBlock :: Maybe BasicBlock
-          , binaryLhs :: Value
-          , binaryRhs :: Value
-          } :: Instruction BinaryOp ConstOp
-  RemInst { _instructionType :: Type
-          , _instructionName :: !(Maybe Identifier)
-          , instructionMetadata :: [Metadata]
-          , instructionUniqueId :: UniqueId
-          , instructionBasicBlock :: Maybe BasicBlock
-          , binaryLhs :: Value
-          , binaryRhs :: Value
-          } :: Instruction BinaryOp ConstOp
-  ShlInst { _instructionType :: Type
-          , _instructionName :: !(Maybe Identifier)
-          , instructionMetadata :: [Metadata]
-          , instructionUniqueId :: UniqueId
-          , instructionBasicBlock :: Maybe BasicBlock
-          , binaryLhs :: Value
-          , binaryRhs :: Value
-          } :: Instruction BinaryOp ConstOp
-  LshrInst { _instructionType :: Type
-           , _instructionName :: !(Maybe Identifier)
-           , instructionMetadata :: [Metadata]
-           , instructionUniqueId :: UniqueId
-           , instructionBasicBlock :: Maybe BasicBlock
-           , binaryLhs :: Value
-           , binaryRhs :: Value
-           } :: Instruction BinaryOp ConstOp
-  AshrInst { _instructionType :: Type
-           , _instructionName :: !(Maybe Identifier)
-           , instructionMetadata :: [Metadata]
-           , instructionUniqueId :: UniqueId
-           , instructionBasicBlock :: Maybe BasicBlock
-           , binaryLhs :: Value
-           , binaryRhs :: Value
-           } :: Instruction BinaryOp ConstOp
-  AndInst { _instructionType :: Type
-          , _instructionName :: !(Maybe Identifier)
-          , instructionMetadata :: [Metadata]
-          , instructionUniqueId :: UniqueId
-          , instructionBasicBlock :: Maybe BasicBlock
-          , binaryLhs :: Value
-          , binaryRhs :: Value
-          } :: Instruction BinaryOp ConstOp
-  OrInst { _instructionType :: Type
-         , _instructionName :: !(Maybe Identifier)
-         , instructionMetadata :: [Metadata]
-         , instructionUniqueId :: UniqueId
-         , instructionBasicBlock :: Maybe BasicBlock
-         , binaryLhs :: Value
-         , binaryRhs :: Value
-         } :: Instruction BinaryOp ConstOp
-  XorInst { _instructionType :: Type
-          , _instructionName :: !(Maybe Identifier)
-          , instructionMetadata :: [Metadata]
-          , instructionUniqueId :: UniqueId
-          , instructionBasicBlock :: Maybe BasicBlock
-          , binaryLhs :: Value
-          , binaryRhs :: Value
-          } :: Instruction BinaryOp ConstOp
-  TruncInst { _instructionType :: Type
-            , _instructionName :: !(Maybe Identifier)
-            , instructionMetadata :: [Metadata]
-            , instructionUniqueId :: UniqueId
-            , instructionBasicBlock :: Maybe BasicBlock
-            , castedValue :: Value
-            } :: Instruction ConversionOp ConstOp
-  ZExtInst { _instructionType :: Type
-           , _instructionName :: !(Maybe Identifier)
-           , instructionMetadata :: [Metadata]
-           , instructionUniqueId :: UniqueId
-           , instructionBasicBlock :: Maybe BasicBlock
-           , castedValue :: Value
-           } :: Instruction ConversionOp ConstOp
-  SExtInst { _instructionType :: Type
-           , _instructionName :: !(Maybe Identifier)
-           , instructionMetadata :: [Metadata]
-           , instructionUniqueId :: UniqueId
-           , instructionBasicBlock :: Maybe BasicBlock
-           , castedValue :: Value
-           } :: Instruction ConversionOp ConstOp
-  FPTruncInst { _instructionType :: Type
-              , _instructionName :: !(Maybe Identifier)
-              , instructionMetadata :: [Metadata]
-              , instructionUniqueId :: UniqueId
-              , instructionBasicBlock :: Maybe BasicBlock
-              , castedValue :: Value
-              } :: Instruction ConversionOp ConstOp
-  FPExtInst { _instructionType :: Type
-            , _instructionName :: !(Maybe Identifier)
-            , instructionMetadata :: [Metadata]
-            , instructionUniqueId :: UniqueId
-            , instructionBasicBlock :: Maybe BasicBlock
-            , castedValue :: Value
-            } :: Instruction ConversionOp ConstOp
-  FPToSIInst { _instructionType :: Type
-             , _instructionName :: !(Maybe Identifier)
-             , instructionMetadata :: [Metadata]
-             , instructionUniqueId :: UniqueId
-             , instructionBasicBlock :: Maybe BasicBlock
-             , castedValue :: Value
-             } :: Instruction ConversionOp ConstOp
-  FPToUIInst { _instructionType :: Type
-             , _instructionName :: !(Maybe Identifier)
-             , instructionMetadata :: [Metadata]
-             , instructionUniqueId :: UniqueId
-             , instructionBasicBlock :: Maybe BasicBlock
-             , castedValue :: Value
-             } :: Instruction ConversionOp ConstOp
-  SIToFPInst { _instructionType :: Type
-             , _instructionName :: !(Maybe Identifier)
-             , instructionMetadata :: [Metadata]
-             , instructionUniqueId :: UniqueId
-             , instructionBasicBlock :: Maybe BasicBlock
-             , castedValue :: Value
-             } :: Instruction ConversionOp ConstOp
-  UIToFPInst { _instructionType :: Type
-             , _instructionName :: !(Maybe Identifier)
-             , instructionMetadata :: [Metadata]
-             , instructionUniqueId :: UniqueId
-             , instructionBasicBlock :: Maybe BasicBlock
-             , castedValue :: Value
-             } :: Instruction ConversionOp ConstOp
-  PtrToIntInst { _instructionType :: Type
-               , _instructionName :: !(Maybe Identifier)
-               , instructionMetadata :: [Metadata]
-               , instructionUniqueId :: UniqueId
-               , instructionBasicBlock :: Maybe BasicBlock
+-- | The
+data Instruction :: InstrKind -> InstrTag -> * where -- k t where
+  RetInst :: { retInstMetadata :: [Metadata]
+             , retInstUniqueId :: UniqueId
+             , retInstBasicBlock :: Maybe BasicBlock
+             , retInstValue :: Maybe Value
+             } -> Instruction Terminator OtherTag
+  UnconditionalBranchInst :: { branchMetadata :: [Metadata]
+                             , branchUniqueId :: UniqueId
+                             , branchBasicBlock :: Maybe BasicBlock
+                             , unconditionalBranchTarget :: BasicBlock
+                             } -> Instruction Terminator OtherTag
+  BranchInst :: { branchMetadata :: [Metadata]
+                , branchUniqueId :: UniqueId
+                , branchBasicBlock :: Maybe BasicBlock
+                , branchCondition :: Value
+                , branchTrueTarget :: BasicBlock
+                , branchFalseTarget :: BasicBlock
+                } -> Instruction Terminator OtherTag
+  SwitchInst :: { switchMetadata :: [Metadata]
+                , switchUniqueId :: UniqueId
+                , switchBasicBlock :: Maybe BasicBlock
+                , switchValue :: Value
+                , switchDefaultTarget :: BasicBlock
+                , switchCases :: [(Value, BasicBlock)]
+                } -> Instruction Terminator OtherTag
+  IndirectBranchInst :: { indirectBranchMetadata :: [Metadata]
+                        , indirectBranchUniqueId :: UniqueId
+                        , indirectBranchBasicBlock :: Maybe BasicBlock
+                        , indirectBranchAddress :: Value
+                        , indirectBranchTargets :: [BasicBlock]
+                        } -> Instruction Terminator OtherTag
+                        -- ^ The target must be derived from a blockaddress constant
+                        -- The list is a list of possible target destinations
+  ResumeInst :: { resumeMetadata :: [Metadata]
+                , resumeUniqueId :: UniqueId
+                , resumeBasicBlock :: Maybe BasicBlock
+                , resumeException :: Value
+                } -> Instruction Terminator OtherTag
+  UnreachableInst :: { unreachableMetadata :: [Metadata]
+                     , unreachableUniqueId :: UniqueId
+                     , unreachableBasicBlock :: Maybe BasicBlock
+                     } -> Instruction Terminator OtherTag
+  ExtractElementInst :: { extractElementType :: Type
+                        , extractElementName :: !(Maybe Identifier)
+                        , extractElementMetadata :: [Metadata]
+                        , extractElementUniqueId :: UniqueId
+                        , extractElementBasicBlock :: Maybe BasicBlock
+                        , extractElementVector :: Value
+                        , extractElementIndex :: Value
+                        } -> Instruction VectorOp ConstLike
+  InsertElementInst :: { insertElementType :: Type
+                       , insertElementName :: !(Maybe Identifier)
+                       , insertElementMetadata :: [Metadata]
+                       , insertElementUniqueId :: UniqueId
+                       , insertElementBasicBlock :: Maybe BasicBlock
+                       , insertElementVector :: Value
+                       , insertElementValue :: Value
+                       , insertElementIndex :: Value
+                       } -> Instruction VectorOp ConstLike
+  ShuffleVectorInst :: { shuffleVectorType :: Type
+                       , shuffleVectorName :: !(Maybe Identifier)
+                       , shuffleVectorMetadata :: [Metadata]
+                       , shuffleVectorUniqueId :: UniqueId
+                       , shuffleVectorBasicBlock :: Maybe BasicBlock
+                       , shuffleVectorV1 :: Value
+                       , shuffleVectorV2 :: Value
+                       , shuffleVectorMask :: Value
+                       } -> Instruction VectorOp ConstLike
+  ExtractValueInst :: { extractValueType :: Type
+                      , extractValueName :: !(Maybe Identifier)
+                      , extractValueMetadata :: [Metadata]
+                      , extractValueUniqueId :: UniqueId
+                      , extractValueBasicBlock :: Maybe BasicBlock
+                      , extractValueAggregate :: Value
+                      , extractValueIndices :: [Int]
+                      } -> Instruction AggregateOp ConstLike
+  InsertValueInst :: { insertValueType :: Type
+                     , insertValueName :: !(Maybe Identifier)
+                     , insertValueMetadata :: [Metadata]
+                     , insertValueUniqueId :: UniqueId
+                     , insertValueBasicBlock :: Maybe BasicBlock
+                     , insertValueAggregate :: Value
+                     , insertValueValue :: Value
+                     , insertValueIndices :: [Int]
+                     } -> Instruction AggregateOp ConstLike
+  AllocaInst :: { allocaType :: Type
+                , allocaName :: !(Maybe Identifier)
+                , allocaMetadata :: [Metadata]
+                , allocaUniqueId :: UniqueId
+                , allocaBasicBlock :: Maybe BasicBlock
+                , allocaNumElements :: Value
+                , allocaAlign :: !Int64
+                } -> Instruction MemoryOp OtherTag
+  LoadInst :: { loadType :: Type
+              , loadName :: !(Maybe Identifier)
+              , loadMetadata :: [Metadata]
+              , loadUniqueId :: UniqueId
+              , loadBasicBlock :: Maybe BasicBlock
+              , loadIsVolatile :: !Bool
+              , loadAddress :: Value
+              , loadAlignment :: !Int64
+              } -> Instruction MemoryOp OtherTag
+  StoreInst :: { storeMetadata :: [Metadata]
+               , storeUniqueId :: UniqueId
+               , storeBasicBlock :: Maybe BasicBlock
+               , storeIsVolatile :: !Bool
+               , storeValue :: Value
+               , storeAddress :: Value
+               , storeAlignment :: !Int64
+               , storeAddressSpace :: !Int
+               } -> Instruction MemoryOp OtherTag
+  FenceInst :: { fenceMetadata :: [Metadata]
+               , fenceUniqueId :: UniqueId
+               , fenceBasicBlock :: Maybe BasicBlock
+               , fenceOrdering :: !AtomicOrdering
+               , fenceScope :: !SynchronizationScope
+               } -> Instruction MemoryOp OtherTag
+  AtomicCmpXchgInst :: { atomicCmpXchgMetadata :: [Metadata]
+                       , atomicCmpXchgUniqueId :: UniqueId
+                       , atomicCmpXchgBasicBlock :: Maybe BasicBlock
+                       , atomicCmpXchgOrdering :: !AtomicOrdering
+                       , atomicCmpXchgScope :: !SynchronizationScope
+                       , atomicCmpXchgIsVolatile :: !Bool
+                       , atomicCmpXchgAddressSpace :: !Int
+                       , atomicCmpXchgPointer :: Value
+                       , atomicCmpXchgComparison :: Value
+                       , atomicCmpXchgNewValue :: Value
+                       } -> Instruction MemoryOp OtherTag
+  AtomicRMWInst :: { atomicRMWMetadata :: [Metadata]
+                   , atomicRMWUniqueId :: UniqueId
+                   , atomicRMWBasicBlock :: Maybe BasicBlock
+                   , atomicRMWOrdering :: !AtomicOrdering
+                   , atomicRMWScope :: !SynchronizationScope
+                   , atomicRMWOperation :: !AtomicOperation
+                   , atomicRMWIsVolatile :: !Bool
+                   , atomicRMWPointer :: Value
+                   , atomicRMWValue :: Value
+                   , atomicRMWAddressSpace :: !Int
+                   } -> Instruction MemoryOp OtherTag
+  AddInst :: { binaryType :: Type
+             , binaryName :: !(Maybe Identifier)
+             , binaryMetadata :: [Metadata]
+             , binaryUniqueId :: UniqueId
+             , binaryBasicBlock :: Maybe BasicBlock
+             , binaryArithFlags :: !ArithFlags
+             , binaryLhs :: Value
+             , binaryRhs :: Value
+             } -> Instruction BinaryOp ConstLike
+  SubInst :: { binaryType :: Type
+             , binaryName :: !(Maybe Identifier)
+             , binaryMetadata :: [Metadata]
+             , binaryUniqueId :: UniqueId
+             , binaryBasicBlock :: Maybe BasicBlock
+             , binaryArithFlags :: !ArithFlags
+             , binaryLhs :: Value
+             , binaryRhs :: Value
+             } -> Instruction BinaryOp ConstLike
+  MulInst :: { binaryType :: Type
+             , binaryName :: !(Maybe Identifier)
+             , binaryMetadata :: [Metadata]
+             , binaryUniqueId :: UniqueId
+             , binaryBasicBlock :: Maybe BasicBlock
+             , binaryArithFlags :: !ArithFlags
+             , binaryLhs :: Value
+             , binaryRhs :: Value
+             } -> Instruction BinaryOp ConstLike
+  DivInst :: { binaryType :: Type
+             , binaryName :: !(Maybe Identifier)
+             , binaryMetadata :: [Metadata]
+             , binaryUniqueId :: UniqueId
+             , binaryBasicBlock :: Maybe BasicBlock
+             , binaryLhs :: Value
+             , binaryRhs :: Value
+             } -> Instruction BinaryOp ConstLike
+  RemInst :: { binaryType :: Type
+             , binaryName :: !(Maybe Identifier)
+             , binaryMetadata :: [Metadata]
+             , binaryUniqueId :: UniqueId
+             , binaryBasicBlock :: Maybe BasicBlock
+             , binaryLhs :: Value
+             , binaryRhs :: Value
+             } -> Instruction BinaryOp ConstLike
+  ShlInst :: { binaryType :: Type
+             , binaryName :: !(Maybe Identifier)
+             , binaryMetadata :: [Metadata]
+             , binaryUniqueId :: UniqueId
+             , binaryBasicBlock :: Maybe BasicBlock
+             , binaryLhs :: Value
+             , binaryRhs :: Value
+             } -> Instruction BinaryOp ConstLike
+  LshrInst :: { binaryType :: Type
+              , binaryName :: !(Maybe Identifier)
+              , binaryMetadata :: [Metadata]
+              , binaryUniqueId :: UniqueId
+              , binaryBasicBlock :: Maybe BasicBlock
+              , binaryLhs :: Value
+              , binaryRhs :: Value
+              } -> Instruction BinaryOp ConstLike
+  AshrInst :: { binaryType :: Type
+              , binaryName :: !(Maybe Identifier)
+              , binaryMetadata :: [Metadata]
+              , binaryUniqueId :: UniqueId
+              , binaryBasicBlock :: Maybe BasicBlock
+              , binaryLhs :: Value
+              , binaryRhs :: Value
+              } -> Instruction BinaryOp ConstLike
+  AndInst :: { binaryType :: Type
+             , binaryName :: !(Maybe Identifier)
+             , binaryMetadata :: [Metadata]
+             , binaryUniqueId :: UniqueId
+             , binaryBasicBlock :: Maybe BasicBlock
+             , binaryLhs :: Value
+             , binaryRhs :: Value
+             } -> Instruction BinaryOp ConstLike
+  OrInst :: { binaryType :: Type
+            , binaryName :: !(Maybe Identifier)
+            , binaryMetadata :: [Metadata]
+            , binaryUniqueId :: UniqueId
+            , binaryBasicBlock :: Maybe BasicBlock
+            , binaryLhs :: Value
+            , binaryRhs :: Value
+            } -> Instruction BinaryOp ConstLike
+  XorInst :: { binaryType :: Type
+             , binaryName :: !(Maybe Identifier)
+             , binaryMetadata :: [Metadata]
+             , binaryUniqueId :: UniqueId
+             , binaryBasicBlock :: Maybe BasicBlock
+             , binaryLhs :: Value
+             , binaryRhs :: Value
+             } -> Instruction BinaryOp ConstLike
+  TruncInst :: { castType :: Type
+               , castName :: !(Maybe Identifier)
+               , castMetadata :: [Metadata]
+               , castUniqueId :: UniqueId
+               , castBasicBlock :: Maybe BasicBlock
                , castedValue :: Value
-               } :: Instruction ConversionOp ConstOp
-  IntToPtrInst { _instructionType :: Type
-               , _instructionName :: !(Maybe Identifier)
-               , instructionMetadata :: [Metadata]
-               , instructionUniqueId :: UniqueId
-               , instructionBasicBlock :: Maybe BasicBlock
-               , castedValue :: Value
-               } :: Instruction ConversionOp ConstOp
-  BitcastInst { _instructionType :: Type
-              , _instructionName :: !(Maybe Identifier)
-              , instructionMetadata :: [Metadata]
-              , instructionUniqueId :: UniqueId
-              , instructionBasicBlock :: Maybe BasicBlock
+               } -> Instruction ConversionOp ConstLike
+  ZExtInst :: { castType :: Type
+              , castName :: !(Maybe Identifier)
+              , castMetadata :: [Metadata]
+              , castUniqueId :: UniqueId
+              , castBasicBlock :: Maybe BasicBlock
               , castedValue :: Value
-              } :: Instruction ConversionOp ConstOp
-  ICmpInst { _instructionType :: Type
-           , _instructionName :: !(Maybe Identifier)
-           , instructionMetadata :: [Metadata]
-           , instructionUniqueId :: UniqueId
-           , instructionBasicBlock :: Maybe BasicBlock
-           , cmpPredicate :: !CmpPredicate
-           , cmpV1 :: Value
-           , cmpV2 :: Value
-           } :: Instruction CompareOp ConstOp
-  FCmpInst { _instructionType :: Type
-           , _instructionName :: !(Maybe Identifier)
-           , instructionMetadata :: [Metadata]
-           , instructionUniqueId :: UniqueId
-           , instructionBasicBlock :: Maybe BasicBlock
-           , cmpPredicate :: !CmpPredicate
-           , cmpV1 :: Value
-           , cmpV2 :: Value
-           } :: Instruction CompareOp ConstOp
-  SelectInst { _instructionType :: Type
-             , _instructionName :: !(Maybe Identifier)
-             , instructionMetadata :: [Metadata]
-             , instructionUniqueId :: UniqueId
-             , instructionBasicBlock :: Maybe BasicBlock
-             , selectCondition :: Value
-             , selectTrueValue :: Value
-             , selectFalseValue :: Value
-             } :: Instruction OtherOp ConstOp
-  CallInst { _instructionType :: Type
-           , _instructionName :: !(Maybe Identifier)
-           , instructionMetadata :: [Metadata]
-           , instructionUniqueId :: UniqueId
-           , instructionBasicBlock :: Maybe BasicBlock
-           , callIsTail :: !Bool
-           , callConvention :: !CallingConvention
-           , callParamAttrs :: [ParamAttribute]
-           , callFunction :: Value
-           , callArguments :: [(Value, [ParamAttribute])]
-           , callAttrs :: [FunctionAttribute]
-           , callHasSRet :: !Bool
-           } :: Instruction OtherOp CallLike
-  GetElementPtrInst { _instructionType :: Type
-                    , _instructionName :: !(Maybe Identifier)
-                    , instructionMetadata :: [Metadata]
-                    , instructionUniqueId :: UniqueId
-                    , instructionBasicBlock :: Maybe BasicBlock
-                    , getElementPtrInBounds :: !Bool
-                    , getElementPtrValue :: Value
-                    , getElementPtrIndices :: [Value]
-                    , getElementPtrAddrSpace :: !Int
-                    } :: Instruction MemoryOp ConstOp
-  InvokeInst { _instructionType :: Type
-             , _instructionName :: !(Maybe Identifier)
-             , instructionMetadata :: [Metadata]
-             , instructionUniqueId :: UniqueId
-             , instructionBasicBlock :: Maybe BasicBlock
-             , invokeConvention :: !CallingConvention
-             , invokeParamAttrs :: [ParamAttribute]
-             , invokeFunction :: Value
-             , invokeArguments :: [(Value, [ParamAttribute])]
-             , invokeAttrs :: [FunctionAttribute]
-             , invokeNormalLabel :: BasicBlock
-             , invokeUnwindLabel :: BasicBlock
-             , invokeHasSRet :: !Bool
-             } :: Instruction Terminator CallLike
-  VaArgInst { _instructionType :: Type
-            , _instructionName :: !(Maybe Identifier)
-            , instructionMetadata :: [Metadata]
-            , instructionUniqueId :: UniqueId
-            , instructionBasicBlock :: Maybe BasicBlock
-            , vaArgValue :: Value
-            } :: Instruction OtherOp t
-  LandingPadInst { _instructionType :: Type
-                 , _instructionName :: !(Maybe Identifier)
-                 , instructionMetadata :: [Metadata]
-                 , instructionUniqueId :: UniqueId
-                 , instructionBasicBlock :: Maybe BasicBlock
-                 , landingPadPersonality :: Value
-                 , landingPadIsCleanup :: !Bool
-                 , landingPadClauses :: [(Value, LandingPadClause)]
-                 } :: Instruction OtherOp t
-  PhiNode { _instructionType :: Type
-          , _instructionName :: !(Maybe Identifier)
-          , instructionMetadata :: [Metadata]
-          , instructionUniqueId :: UniqueId
-          , instructionBasicBlock :: Maybe BasicBlock
-          , phiIncomingValues :: [(Value, Value)]
-          } :: Instruction Phi t
+              } -> Instruction ConversionOp ConstLike
+  SExtInst :: { castType :: Type
+              , castName :: !(Maybe Identifier)
+              , castMetadata :: [Metadata]
+              , castUniqueId :: UniqueId
+              , castBasicBlock :: Maybe BasicBlock
+              , castedValue :: Value
+              } -> Instruction ConversionOp ConstLike
+  FPTruncInst :: { castType :: Type
+                 , castName :: !(Maybe Identifier)
+                 , castMetadata :: [Metadata]
+                 , castUniqueId :: UniqueId
+                 , castBasicBlock :: Maybe BasicBlock
+                 , castedValue :: Value
+                 } -> Instruction ConversionOp ConstLike
+  FPExtInst :: { castType :: Type
+               , castName :: !(Maybe Identifier)
+               , castMetadata :: [Metadata]
+               , castUniqueId :: UniqueId
+               , castBasicBlock :: Maybe BasicBlock
+               , castedValue :: Value
+               } -> Instruction ConversionOp ConstLike
+  FPToSIInst :: { castType :: Type
+                , castName :: !(Maybe Identifier)
+                , castMetadata :: [Metadata]
+                , castUniqueId :: UniqueId
+                , castBasicBlock :: Maybe BasicBlock
+                , castedValue :: Value
+                } -> Instruction ConversionOp ConstLike
+  FPToUIInst :: { castType :: Type
+                , castName :: !(Maybe Identifier)
+                , castMetadata :: [Metadata]
+                , castUniqueId :: UniqueId
+                , castBasicBlock :: Maybe BasicBlock
+                , castedValue :: Value
+                } -> Instruction ConversionOp ConstLike
+  SIToFPInst :: { castType :: Type
+                , castName :: !(Maybe Identifier)
+                , castMetadata :: [Metadata]
+                , castUniqueId :: UniqueId
+                , castBasicBlock :: Maybe BasicBlock
+                , castedValue :: Value
+                } -> Instruction ConversionOp ConstLike
+  UIToFPInst :: { castType :: Type
+                , castName :: !(Maybe Identifier)
+                , castMetadata :: [Metadata]
+                , castUniqueId :: UniqueId
+                , castBasicBlock :: Maybe BasicBlock
+                , castedValue :: Value
+                } -> Instruction ConversionOp ConstLike
+  PtrToIntInst :: { castType :: Type
+                  , castName :: !(Maybe Identifier)
+                  , castMetadata :: [Metadata]
+                  , castUniqueId :: UniqueId
+                  , castBasicBlock :: Maybe BasicBlock
+                  , castedValue :: Value
+                  } -> Instruction ConversionOp ConstLike
+  IntToPtrInst :: { castType :: Type
+                  , castName :: !(Maybe Identifier)
+                  , castMetadata :: [Metadata]
+                  , castUniqueId :: UniqueId
+                  , castBasicBlock :: Maybe BasicBlock
+                  , castedValue :: Value
+                  } -> Instruction ConversionOp ConstLike
+  BitcastInst :: { castType :: Type
+                 , castName :: !(Maybe Identifier)
+                 , castMetadata :: [Metadata]
+                 , castUniqueId :: UniqueId
+                 , castBasicBlock :: Maybe BasicBlock
+                 , castedValue :: Value
+                 } -> Instruction ConversionOp ConstLike
+  ICmpInst :: { cmpType :: Type
+              , cmpName :: !(Maybe Identifier)
+              , cmpMetadata :: [Metadata]
+              , cmpUniqueId :: UniqueId
+              , cmpBasicBlock :: Maybe BasicBlock
+              , cmpPredicate :: !CmpPredicate
+              , cmpV1 :: Value
+              , cmpV2 :: Value
+              } -> Instruction CompareOp ConstLike
+  FCmpInst :: { cmpType :: Type
+              , cmpName :: !(Maybe Identifier)
+              , cmpMetadata :: [Metadata]
+              , cmpUniqueId :: UniqueId
+              , cmpBasicBlock :: Maybe BasicBlock
+              , cmpPredicate :: !CmpPredicate
+              , cmpV1 :: Value
+              , cmpV2 :: Value
+              } -> Instruction CompareOp ConstLike
+  SelectInst :: { selectType :: Type
+                , selectName :: !(Maybe Identifier)
+                , selectMetadata :: [Metadata]
+                , selectUniqueId :: UniqueId
+                , selectBasicBlock :: Maybe BasicBlock
+                , selectCondition :: Value
+                , selectTrueValue :: Value
+                , selectFalseValue :: Value
+                } -> Instruction OtherOp ConstLike
+  CallInst :: { callType :: Type
+              , callName :: !(Maybe Identifier)
+              , callMetadata :: [Metadata]
+              , callUniqueId :: UniqueId
+              , callBasicBlock :: Maybe BasicBlock
+              , callIsTail :: !Bool
+              , callConvention :: !CallingConvention
+              , callParamAttrs :: [ParamAttribute]
+              , callFunction :: Value
+              , callArguments :: [(Value, [ParamAttribute])]
+              , callAttrs :: [FunctionAttribute]
+              , callHasSRet :: !Bool
+              } -> Instruction OtherOp CallLike
+  GetElementPtrInst :: { getElementPtrType :: Type
+                       , getElementPtrName :: !(Maybe Identifier)
+                       , getElementPtrMetadata :: [Metadata]
+                       , getElementPtrUniqueId :: UniqueId
+                       , getElementPtrBasicBlock :: Maybe BasicBlock
+                       , getElementPtrInBounds :: !Bool
+                       , getElementPtrValue :: Value
+                       , getElementPtrIndices :: [Value]
+                       , getElementPtrAddrSpace :: !Int
+                       } -> Instruction MemoryOp ConstLike
+  InvokeInst :: { invokeType :: Type
+                , invokeName :: !(Maybe Identifier)
+                , invokeMetadata :: [Metadata]
+                , invokeUniqueId :: UniqueId
+                , invokeBasicBlock :: Maybe BasicBlock
+                , invokeConvention :: !CallingConvention
+                , invokeParamAttrs :: [ParamAttribute]
+                , invokeFunction :: Value
+                , invokeArguments :: [(Value, [ParamAttribute])]
+                , invokeAttrs :: [FunctionAttribute]
+                , invokeNormalLabel :: BasicBlock
+                , invokeUnwindLabel :: BasicBlock
+                , invokeHasSRet :: !Bool
+                } -> Instruction Terminator CallLike
+  VaArgInst :: { vaArgType :: Type
+               , vaArgName :: !(Maybe Identifier)
+               , vaArgMetadata :: [Metadata]
+               , vaArgUniqueId :: UniqueId
+               , vaArgBasicBlock :: Maybe BasicBlock
+               , vaArgValue :: Value
+               } -> Instruction OtherOp OtherTag
+  LandingPadInst :: { landingPadType :: Type
+                    , landingPadName :: !(Maybe Identifier)
+                    , landingPadMetadata :: [Metadata]
+                    , landingPadUniqueId :: UniqueId
+                    , landingPadBasicBlock :: Maybe BasicBlock
+                    , landingPadPersonality :: Value
+                    , landingPadIsCleanup :: !Bool
+                    , landingPadClauses :: [(Value, LandingPadClause)]
+                    } -> Instruction OtherOp OtherTag
+  PhiNode :: { phiType :: Type
+             , phiName :: !(Maybe Identifier)
+             , phiMetadata :: [Metadata]
+             , phiUniqueId :: UniqueId
+             , phiBasicBlock :: Maybe BasicBlock
+             , phiIncomingValues :: [(Value, Value)]
+             } -> Instruction Phi OtherTag
 
-instance IsValue (Instruction k t) where
+instance IsValue (Instruction k t) where -- (Instruction (k :: InstrKind) (t :: InstrTag)) where
   valueType = instructionType
   valueName = instructionName
   valueMetadata = instructionMetadata
-  valueContent = InstructionC
+  valueContent :: Instruction k t -> Value
+  valueContent i = InstructionC (unsafeCoerce i)
   valueUniqueId = instructionUniqueId
 
 instance Eq (Instruction k t) where
@@ -1378,7 +1624,7 @@ data Constant = UndefValue { constantType :: Type
                                }
               | ConstantValue { constantType :: Type
                               , constantUniqueId :: UniqueId
-                              , constantInstruction :: forall k . Instruction k ConstOp
+                              , constantInstruction :: forall k . Instruction k ConstLike
                                 -- ^ Only open instructions are
                                 -- allowed; terminators don't make any
                                 -- sense.

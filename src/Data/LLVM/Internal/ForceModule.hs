@@ -19,7 +19,7 @@ import Data.LLVM.Types.Referential
 
 type ForceMonad = State (HashSet Value, HashSet Metadata)
 
-forceInstruction :: Instruction -> ForceMonad ()
+forceInstruction :: Instruction k t -> ForceMonad ()
 forceInstruction i = do
   instructionType i `seq` i `seq` return ()
   mapM_ metaForceIfNeeded (instructionMetadata i)
