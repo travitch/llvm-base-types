@@ -46,6 +46,7 @@ module Data.LLVM.Types.Referential (
   instructionName,
   instructionFunction,
   instructionIsTerminator,
+  instructionIsEntry,
   instructionIsPhiNode,
   -- * Globals
   GlobalVariable(..),
@@ -856,6 +857,12 @@ instructionIsTerminator ResumeInst {} = True
 instructionIsTerminator UnreachableInst {} = True
 instructionIsTerminator InvokeInst {} = True
 instructionIsTerminator _ = False
+
+instructionIsEntry :: Instruction -> Bool
+instructionIsEntry i = i == ei
+  where
+    ei = V.unsafeHead $ basicBlockInstructionVector bb
+    Just bb = instructionBasicBlock i
 
 instructionFunction :: Instruction -> Maybe Function
 instructionFunction i = do
