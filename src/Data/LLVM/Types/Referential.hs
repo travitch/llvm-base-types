@@ -69,6 +69,7 @@ import Data.Int
 import Data.List ( elemIndex )
 import Data.Ord ( comparing )
 import Data.Text ( Text, isPrefixOf )
+import qualified Data.Text as T
 import Data.Typeable
 import Data.Vector ( Vector )
 import qualified Data.Vector as V
@@ -124,7 +125,7 @@ data Type = TypeInteger !Int
             -- and a flag that denotes whether or not the function
             -- accepts varargs
           | TypePointer Type !Int
-          | TypeStruct (Either Word64 String) [Type] !Bool
+          | TypeStruct (Either Word64 Text) [Type] !Bool
             -- ^ Struct types have a list of types in thes struct and
             -- a flag that is True if they are packed.  Named structs
             -- have a (Right stringName) as the name.  Anonymous
@@ -138,7 +139,8 @@ data StructTypeNameError = NotStructType
 -- to a struct type name.  If the type is not a struct type, return
 -- Nothing.
 structTypeToName :: (Failure StructTypeNameError m) => Type -> m String
-structTypeToName (TypeStruct (Right n) _ _) = return $ structBaseName n
+structTypeToName (TypeStruct (Right n) _ _) =
+  return $ structBaseName (T.unpack n)
 structTypeToName _ = failure NotStructType
 
 structBaseName :: String -> String

@@ -859,7 +859,7 @@ printType (TypeStruct (Left _) ts p) =
     True -> mconcat [ singleton '<', fieldVals, singleton '>' ]
     False -> mconcat [ singleton '{', fieldVals, singleton '}' ]
   where fieldVals = commaSep $ map printType ts
-printType (TypeStruct (Right n) _ _) = singleton '%' `mappend` fromString n
+printType (TypeStruct (Right n) _ _) = singleton '%' `mappend` fromText n
 
 instance Show Metadata where
   show = builderToString . printMetadata
