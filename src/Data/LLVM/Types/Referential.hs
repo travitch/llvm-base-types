@@ -167,9 +167,41 @@ stripPointerTypes t =
 -- tedious here, so just base Ord off of equality and then make the
 -- ordering arbitrary (but consistent) based on the Hashable instance.
 instance Ord Type where
-  t1 `compare` t2 = case t1 == t2 of
-    True -> EQ
-    False -> comparing hash t1 t2
+  compare = compareType
+
+compareType :: Type -> Type -> Ordering
+compareType ty1 ty2
+  | ty1 == ty2 = EQ
+  | otherwise =
+    case (ty1, ty2) of
+      (TypeStruct (Right n1) _ _, TypeStruct (Right n2) _ _) ->
+        compare n1 n2
+      (TypeStruct (Left n1) _ _, TypeStruct (Left n2) _ _) ->
+        compare n1 n2
+      (TypePointer t1 p1, TypePointer t2 p2) -> compare (t1, p1) (t2, p2)
+      (TypeArray i1 t1, TypeArray i2 t2) -> compare (i1, t1) (i2, t2)
+      (TypeVector i1 t1, TypeVector i2 t2) -> compare (i1, t1) (i2, t2)
+      (TypeFunction r1 ts1 v1, TypeFunction r2 ts2 v2) ->
+        compare (r1, ts1, v1) (r2, ts2, v2)
+      _ -> compare (typeOrdKey ty1) (typeOrdKey ty2)
+
+typeOrdKey :: Type -> Int
+typeOrdKey (TypeInteger i) = negate i
+typeOrdKey TypeFloat = 1
+typeOrdKey TypeDouble = 2
+typeOrdKey TypeFP128 = 3
+typeOrdKey TypeX86MMX = 4
+typeOrdKey TypeX86FP80 = 5
+typeOrdKey TypePPCFP128 = 6
+typeOrdKey TypeVoid = 7
+typeOrdKey TypeLabel = 8
+typeOrdKey TypeMetadata = 9
+typeOrdKey (TypeArray _ _) = 10
+typeOrdKey (TypeVector _ _) = 11
+typeOrdKey (TypeFunction _ _ _) = 12
+typeOrdKey (TypePointer _ _) = 13
+typeOrdKey (TypeStruct (Right _) _ _) = 14
+typeOrdKey (TypeStruct (Left _) _ _) = 15
 
 instance Hashable Type where
   hashWithSalt s (TypeInteger i) =
