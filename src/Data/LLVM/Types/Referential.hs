@@ -4,6 +4,7 @@
 module Data.LLVM.Types.Referential (
   -- * Basic Types
   Type(..),
+  StructTypeNameError(..),
   structTypeToName,
   structBaseName,
   stripPointerTypes,
@@ -71,6 +72,7 @@ import Data.Text ( Text, isPrefixOf )
 import Data.Typeable
 import Data.Vector ( Vector )
 import qualified Data.Vector as V
+import Data.Word ( Word64 )
 import Text.Printf
 import Text.Regex.TDFA
 
@@ -122,15 +124,22 @@ data Type = TypeInteger !Int
             -- and a flag that denotes whether or not the function
             -- accepts varargs
           | TypePointer Type !Int
-          | TypeStruct (Maybe String) [Type] !Bool -- isPacked
-            -- ^ A wrapper for typedefs
+          | TypeStruct (Either Word64 String) [Type] !Bool
+            -- ^ Struct types have a list of types in thes struct and
+            -- a flag that is True if they are packed.  Named structs
+            -- have a (Right stringName) as the name.  Anonymous
+            -- structs have a meaningless (but unique within the
+            -- Module) integer identifier in the (Left structId).
+
+data StructTypeNameError = NotStructType
+                         deriving (Typeable, Show)
 
 -- | Strip off the struct. prefix and any .NNN suffixes added by LLVM
 -- to a struct type name.  If the type is not a struct type, return
 -- Nothing.
-structTypeToName :: Type -> Maybe String
-structTypeToName (TypeStruct (Just n) _ _) = Just $ structBaseName n
-structTypeToName _ = Nothing
+structTypeToName :: (Failure StructTypeNameError m) => Type -> m String
+structTypeToName (TypeStruct (Right n) _ _) = return $ structBaseName n
+structTypeToName _ = failure NotStructType
 
 structBaseName :: String -> String
 structBaseName s =
@@ -182,10 +191,10 @@ instance Hashable Type where
     s `hashWithSalt` (13 :: Int) `hashWithSalt` r `hashWithSalt` ts `hashWithSalt` v
   hashWithSalt s (TypePointer t as) =
     s `hashWithSalt` (15 :: Int) `hashWithSalt` t `hashWithSalt` as
-  hashWithSalt s (TypeStruct (Just n) _ _) =
+  hashWithSalt s (TypeStruct (Right n) _ _) =
     s `hashWithSalt` (16 :: Int) `hashWithSalt` n
-  hashWithSalt s (TypeStruct Nothing ts p) =
-    s `hashWithSalt` (17 :: Int) `hashWithSalt` ts `hashWithSalt` p
+  hashWithSalt s (TypeStruct (Left tid) _ p) =
+    s `hashWithSalt` (17 :: Int) `hashWithSalt` tid `hashWithSalt` p
 
 instance Eq Type where
   TypeInteger i1 == TypeInteger i2 = i1 == i2
@@ -203,9 +212,9 @@ instance Eq Type where
   TypeFunction r1 ts1 v1 == TypeFunction r2 ts2 v2 =
     v1 == v2 && r1 == r2 && ts1 == ts2
   TypePointer t1 as1 == TypePointer t2 as2 = t1 == t2 && as1 == as2
-  TypeStruct (Just n1) _ _ == TypeStruct (Just n2) _ _ = n1 == n2
-  TypeStruct Nothing ts1 p1 == TypeStruct Nothing ts2 p2 =
-    ts1 == ts2 && p1 == p2
+  TypeStruct (Right n1) _ _ == TypeStruct (Right n2) _ _ = n1 == n2
+  TypeStruct (Left tid1) _ _ == TypeStruct (Left tid2) _ _ =
+    tid1 == tid2
   _ == _ = False
 
 data Metadata =

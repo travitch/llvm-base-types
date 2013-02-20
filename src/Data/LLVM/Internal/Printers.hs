@@ -854,12 +854,12 @@ printType (TypeFunction retT argTs isVa) =
     argVals = commaSep $ map printType argTs
     vaTag = if isVa then fromString ", ..." else mempty
 printType (TypePointer ty _) = mconcat [ printType ty, singleton '*' ]
-printType (TypeStruct Nothing ts p) =
+printType (TypeStruct (Left _) ts p) =
   case p of
     True -> mconcat [ singleton '<', fieldVals, singleton '>' ]
     False -> mconcat [ singleton '{', fieldVals, singleton '}' ]
   where fieldVals = commaSep $ map printType ts
-printType (TypeStruct (Just n) _ _) = singleton '%' `mappend` fromString n
+printType (TypeStruct (Right n) _ _) = singleton '%' `mappend` fromString n
 
 instance Show Metadata where
   show = builderToString . printMetadata
