@@ -61,6 +61,7 @@ data Module = Module { moduleIdentifier :: Text
                        -- ^ All of the IR-level types retained by the
                        -- module.
                      , moduleNextId :: UniqueId
+                     , moduleTypeSizes :: Type -> Maybe Int
                      }
 
 -- | Implementation of the Show instance
