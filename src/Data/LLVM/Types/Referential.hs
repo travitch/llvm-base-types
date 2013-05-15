@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE TypeSynonymInstances, FlexibleContexts, OverloadedStrings #-}
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable, ViewPatterns #-}
 module Data.LLVM.Types.Referential (
   -- * Basic Types
   Type(..),
@@ -49,6 +49,7 @@ module Data.LLVM.Types.Referential (
   instructionIsTerminator,
   instructionIsEntry,
   instructionIsPhiNode,
+  instructionOperands,
   -- * Globals
   GlobalVariable(..),
   GlobalAlias(..),
@@ -1359,6 +1360,113 @@ instance Hashable Instruction where
 
 instance Ord Instruction where
   i1 `compare` i2 = comparing instructionUniqueId i1 i2
+
+-- | Return all of the operands for an instruction.  Note that "special"
+-- operands (like the 'Type' in a vararg inst) cannot be returned.  For
+-- Phi nodes, only the incoming values (not their sources) are returned.
+instructionOperands :: Instruction -> [Value]
+instructionOperands i =
+  case i of
+    RetInst { retInstValue = rv } -> maybe [] (:[]) rv
+    UnconditionalBranchInst { } -> []
+    BranchInst { branchCondition = c } -> [c]
+    SwitchInst { switchValue = v } -> [v]
+    IndirectBranchInst { indirectBranchAddress = a } -> [a]
+    ResumeInst { resumeException = e } -> [e]
+    UnreachableInst { } -> []
+    ExtractElementInst { extractElementVector = v
+                       , extractElementIndex = ix
+                       } -> [v, ix]
+    InsertElementInst { insertElementVector = v
+                      , insertElementIndex = ix
+                      , insertElementValue = val
+                      } -> [v, ix, val]
+    ShuffleVectorInst { shuffleVectorV1 = v1
+                      , shuffleVectorV2 = v2
+                      , shuffleVectorMask = m
+                      } -> [v1, v2, m]
+    ExtractValueInst { extractValueAggregate = a } -> [a]
+    InsertValueInst { insertValueAggregate = a
+                    , insertValueValue = v
+                    } -> [a, v]
+    AllocaInst { allocaNumElements = n } -> [n]
+    LoadInst { loadAddress = la } -> [la]
+    StoreInst { storeValue = sv, storeAddress = sa } -> [sv, sa]
+    FenceInst { } -> []
+    AtomicCmpXchgInst { atomicCmpXchgPointer = p
+                      , atomicCmpXchgNewValue = nv
+                      , atomicCmpXchgComparison = c
+                      } -> [p, nv, c]
+    AtomicRMWInst { atomicRMWPointer = p
+                  , atomicRMWValue = v
+                  } -> [p, v]
+    AddInst { binaryLhs = lhs
+            , binaryRhs = rhs
+            } -> [lhs, rhs]
+    SubInst { binaryLhs = lhs
+            , binaryRhs = rhs
+            } -> [lhs, rhs]
+    MulInst { binaryLhs = lhs
+            , binaryRhs = rhs
+            } -> [lhs, rhs]
+    DivInst { binaryLhs = lhs
+            , binaryRhs = rhs
+            } -> [lhs, rhs]
+    RemInst { binaryLhs = lhs
+            , binaryRhs = rhs
+            } -> [lhs, rhs]
+    ShlInst { binaryLhs = lhs
+            , binaryRhs = rhs
+            } -> [lhs, rhs]
+    LshrInst { binaryLhs = lhs
+             , binaryRhs = rhs
+             } -> [lhs, rhs]
+    AshrInst { binaryLhs = lhs
+             , binaryRhs = rhs
+             } -> [lhs, rhs]
+    AndInst { binaryLhs = lhs
+            , binaryRhs = rhs
+            } -> [lhs, rhs]
+    OrInst { binaryLhs = lhs
+           , binaryRhs = rhs
+           } -> [lhs, rhs]
+    XorInst { binaryLhs = lhs
+            , binaryRhs = rhs
+            } -> [lhs, rhs]
+    TruncInst { castedValue = cv } -> [cv]
+    ZExtInst { castedValue = cv } -> [cv]
+    SExtInst { castedValue = cv } -> [cv]
+    FPTruncInst { castedValue = cv } -> [cv]
+    FPExtInst { castedValue = cv } -> [cv]
+    FPToSIInst { castedValue = cv } -> [cv]
+    FPToUIInst { castedValue = cv } -> [cv]
+    SIToFPInst { castedValue = cv } -> [cv]
+    UIToFPInst { castedValue = cv } -> [cv]
+    PtrToIntInst { castedValue = cv } -> [cv]
+    IntToPtrInst { castedValue = cv } -> [cv]
+    BitcastInst { castedValue = cv } -> [cv]
+    ICmpInst { cmpV1 = v1, cmpV2 = v2 } -> [v1, v2]
+    FCmpInst { cmpV1 = v1, cmpV2 = v2 } -> [v1, v2]
+    SelectInst { selectCondition = c
+               , selectTrueValue = t
+               , selectFalseValue = f
+               } -> [c, t, f]
+    CallInst { callFunction = cf
+             , callArguments = (map fst -> args)
+             } -> cf : args
+    GetElementPtrInst { getElementPtrValue = v
+                      , getElementPtrIndices = ixs
+                      } -> v : ixs
+    InvokeInst { invokeFunction = cf
+               , invokeArguments = (map fst -> args)
+               } -> cf : args
+    VaArgInst { vaArgValue = v } -> [v]
+    LandingPadInst { landingPadPersonality = p
+                   , landingPadClauses = (map fst -> clauses)
+                   } -> p : clauses
+    PhiNode { phiIncomingValues = (map fst -> ivs) } -> ivs
+
+
 
 data Constant = UndefValue { constantType :: Type
                            , constantUniqueId :: UniqueId
