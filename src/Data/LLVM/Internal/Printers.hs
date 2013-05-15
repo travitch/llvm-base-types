@@ -882,6 +882,9 @@ instance Show Function where
 instance Show GlobalVariable where
   show = builderToString . printValue . toValue
 
+instance Show BasicBlock where
+  show = builderToString . printValue . toValue
+
 instance Out Type where
   docPrec _ = PP.text . show
   doc = PP.text . show
