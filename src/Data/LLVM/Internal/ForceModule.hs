@@ -11,7 +11,7 @@ module Data.LLVM.Internal.ForceModule (
   ) where
 
 import Control.DeepSeq
-import Control.Monad.State.Strict
+import Control.Monad.Trans.State.Strict
 import Data.HashSet ( HashSet )
 import qualified Data.HashSet as S
 

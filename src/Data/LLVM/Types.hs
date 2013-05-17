@@ -13,7 +13,7 @@ module Data.LLVM.Types (
   ) where
 
 import Control.DeepSeq
-import Control.Monad.State.Strict
+import Control.Monad.Trans.State.Strict
 import qualified Data.HashSet as S
 import Data.List ( find, intersperse )
 import Data.Monoid
