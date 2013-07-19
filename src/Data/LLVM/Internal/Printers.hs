@@ -113,8 +113,11 @@ printMetadata md@MetaDWSubprogram {} =
 printMetadata md@MetaDWBaseType {} =
   mconcat [ showUntypedMDName md, fromString " = metadata !{i32 ", dbgTag 36
           , fromString ", ", maybeShowMDName (metaBaseTypeContext md)
+          -- I don't think this is the correct way to print filenames
+          -- but as of LLVM 3.3 we don't have another option.
           , fromString ", ", showMDString (metaBaseTypeName md)
-          , fromString ", ", maybeShowMDName (metaBaseTypeFile md)
+          , fromString ", ", showMDString (metaBaseTypeFilename md)
+          , fromString ", ", showMDString (metaBaseTypeDirectory md)
           , fromString ", i32 ", fromShow (metaBaseTypeLine md)
           , fromString ", i32 ", fromShow (metaBaseTypeSize md)
           , fromString ", i32 ", fromShow (metaBaseTypeAlign md)
@@ -127,7 +130,8 @@ printMetadata md@MetaDWDerivedType {} =
   mconcat [ showUntypedMDName md, fromString " = metadata !{i32 ", fromShow (metaDerivedTypeTag md)
           , fromString ", ", maybeShowMDName (metaDerivedTypeContext md)
           , fromString ", ", showMDString (metaDerivedTypeName md)
-          , fromString ", ", maybeShowMDName (metaDerivedTypeFile md)
+          , fromString ", ", showMDString (metaDerivedTypeFilename md)
+          , fromString ", ", showMDString (metaDerivedTypeDirectory md)
           , fromString ", i32 ", fromShow (metaDerivedTypeLine md)
           , fromString ", i32 ", fromShow (metaDerivedTypeSize md)
           , fromString ", i32 ", fromShow (metaDerivedTypeAlign md)
@@ -139,7 +143,8 @@ printMetadata md@MetaDWCompositeType {} =
   mconcat [ showUntypedMDName md, fromString " = metadata !{i32 ", fromShow (metaCompositeTypeTag md)
           , fromString ", ", maybeShowMDName (metaCompositeTypeContext md)
           , fromString ", ", showMDString (metaCompositeTypeName md)
-          , fromString ", ", maybeShowMDName (metaCompositeTypeFile md)
+          , fromString ", ", showMDString (metaCompositeTypeFilename md)
+          , fromString ", ", showMDString (metaCompositeTypeDirectory md)
           , fromString ", i32 ", fromShow (metaCompositeTypeLine md)
           , fromString ", i32 ", fromShow (metaCompositeTypeSize md)
           , fromString ", i32 ", fromShow (metaCompositeTypeAlign md)
