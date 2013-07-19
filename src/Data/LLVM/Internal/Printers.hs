@@ -71,7 +71,6 @@ printMetadata md@MetaDWCompileUnit {} =
           , fromString ", ", showMDString (metaCompileUnitSourceFile md)
           , fromString ", ", showMDString (metaCompileUnitCompileDir md)
           , fromString ", ", showMDString (metaCompileUnitProducer md)
-          , fromString ", ", showBool (metaCompileUnitIsMain md)
           , fromString ", ", showBool (metaCompileUnitIsOpt md)
           , fromString ", i32 ", fromShow (metaCompileUnitVersion md)
           , fromString "}"

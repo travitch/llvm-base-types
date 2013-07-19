@@ -273,7 +273,6 @@ data Metadata =
                       , metaCompileUnitSourceFile :: !Text
                       , metaCompileUnitCompileDir :: !Text
                       , metaCompileUnitProducer :: !Text
-                      , metaCompileUnitIsMain :: !Bool
                       , metaCompileUnitIsOpt :: !Bool
                       , metaCompileUnitFlags :: !Text
                       , metaCompileUnitVersion :: !Int32
