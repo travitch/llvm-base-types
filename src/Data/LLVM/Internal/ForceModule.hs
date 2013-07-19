@@ -287,19 +287,16 @@ forceMetadataT m@(MetaDWSubprogram {}) = do
 forceMetadataT m@(MetaDWBaseType {}) = do
   metaBaseTypeName m `seq` m `seq` return ()
   maybe (return ()) metaForceIfNeeded (metaBaseTypeContext m)
-  maybe (return ()) metaForceIfNeeded (metaBaseTypeFile m)
 forceMetadataT m@(MetaDWDerivedType {}) = do
   metaDerivedTypeName m `seq` m `seq` return ()
   maybe (return ()) metaForceIfNeeded (metaDerivedTypeContext m)
-  mapM_ (maybe (return ()) metaForceIfNeeded) [ metaDerivedTypeFile m
-                                              , metaDerivedTypeParent m
+  mapM_ (maybe (return ()) metaForceIfNeeded) [ metaDerivedTypeParent m
                                               -- , metaDerivedTypeCompileUnit m
                                               ]
 forceMetadataT m@(MetaDWCompositeType {}) = do
   metaCompositeTypeName m `seq` m `seq` return ()
   maybe (return ()) metaForceIfNeeded (metaCompositeTypeContext m)
-  mapM_ (maybe (return ()) metaForceIfNeeded) [ metaCompositeTypeFile m
-                                              , metaCompositeTypeParent m
+  mapM_ (maybe (return ()) metaForceIfNeeded) [ metaCompositeTypeParent m
                                               , metaCompositeTypeMembers m
                                               -- , metaCompositeTypeCompileUnit m
                                               , metaCompositeTypeContainer m
