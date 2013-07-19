@@ -192,6 +192,7 @@ instance NFData Assembly where
 
 -- Param attributes
 
+-- FIXME: Attributes changed in LLVM 3.3. Support that.
 data ParamAttribute = PAZeroExt
                     | PASignExt
                     | PAInReg
@@ -218,6 +219,7 @@ instance Show ParamAttribute where
 
 -- Function Attributes
 
+-- FIXME: Attributes changed in LLVM 3.3. Support that.
 data FunctionAttribute = FAAlignStack !Int
                        | FAAlwaysInline
                        | FAHotPatch
