@@ -274,6 +274,7 @@ data Metadata =
                       , metaCompileUnitCompileDir :: !Text
                       , metaCompileUnitProducer :: !Text
                       , metaCompileUnitIsMain :: !Bool
+                        -- ^ This field is always False in LLVM >= 3.3
                       , metaCompileUnitIsOpt :: !Bool
                       , metaCompileUnitFlags :: !Text
                       , metaCompileUnitVersion :: !Int32
@@ -316,7 +317,8 @@ data Metadata =
   | MetaDWBaseType { metaValueUniqueId :: UniqueId
                    , metaBaseTypeContext :: Maybe Metadata
                    , metaBaseTypeName :: !Text
-                   , metaBaseTypeFile :: Maybe Metadata
+                   , metaBaseTypeFilename :: !Text
+                   , metaBaseTypeDirectory :: !Text
                    , metaBaseTypeLine :: !Int32
                    , metaBaseTypeSize :: !Int64
                    , metaBaseTypeAlign :: !Int64
@@ -328,7 +330,8 @@ data Metadata =
                       , metaDerivedTypeTag :: !DW_TAG
                       , metaDerivedTypeContext :: Maybe Metadata
                       , metaDerivedTypeName :: !Text
-                      , metaDerivedTypeFile :: Maybe Metadata
+                      , metaDerivedTypeFilename :: !Text
+                      , metaDerivedTypeDirectory :: !Text
                       , metaDerivedTypeLine :: !Int32
                       , metaDerivedTypeSize :: !Int64
                       , metaDerivedTypeAlign :: !Int64
@@ -344,7 +347,8 @@ data Metadata =
                         , metaCompositeTypeTag :: !DW_TAG
                         , metaCompositeTypeContext :: Maybe Metadata
                         , metaCompositeTypeName :: !Text
-                        , metaCompositeTypeFile :: Maybe Metadata
+                        , metaCompositeTypeFilename :: !Text
+                        , metaCompositeTypeDirectory :: !Text
                         , metaCompositeTypeLine :: !Int32
                         , metaCompositeTypeSize :: !Int64
                         , metaCompositeTypeAlign :: !Int64
