@@ -192,6 +192,7 @@ printMetadata md@MetaDWTemplateTypeParameter {} =
           , fromString ", ", maybeShowMDName (metaTemplateTypeParameterType md)
           , fromString "}"
           ]
+-- NOTE: the template parameter value could also be specified with a Value now.
 printMetadata md@MetaDWTemplateValueParameter {} =
   mconcat [ showUntypedMDName md, fromString " = metadata !{i32 ", dbgTag 0x30
           , fromString ", ", showMDString (metaTemplateValueParameterName md)
@@ -199,7 +200,7 @@ printMetadata md@MetaDWTemplateValueParameter {} =
           , fromString ", i32 ", fromShow (metaTemplateValueParameterCol md)
           , fromString ", ", maybeShowMDName (metaTemplateValueParameterContext md)
           , fromString ", ", maybeShowMDName (metaTemplateValueParameterType md)
-          , fromString ", i64 ", fromShow (metaTemplateValueParameterValue md)
+          , fromString ", i64 ", fromShow (metaTemplateValueParameterValueInt md)
           , fromString "}"
           ]
 printMetadata md@(MetadataUnknown _ s) =

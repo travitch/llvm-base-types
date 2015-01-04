@@ -397,7 +397,8 @@ data Metadata =
                                  , metaTemplateValueParameterType :: Maybe Metadata
                                  , metaTemplateValueParameterLine :: !Int32
                                  , metaTemplateValueParameterCol :: !Int32
-                                 , metaTemplateValueParameterValue :: !Int64
+                                 , metaTemplateValueParameterValueInt :: !Int64
+                                 , metaTemplateValueParameterValueRef :: Maybe Value
                                  , metaTemplateValueParameterName :: !Text
                                  }
   | MetadataUnknown { metaValueUniqueId :: UniqueId
