@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                llvm-base-types
-version:             0.3.0
+version:             0.4.0
 synopsis:            The base types for a mostly pure Haskell LLVM analysis library
 -- description:
 license:             BSD3
